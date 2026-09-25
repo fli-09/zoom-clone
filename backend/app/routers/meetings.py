@@ -112,3 +112,58 @@ def create_instant_meeting(db: Session = Depends(get_db)):
 
     return db_meeting
 
+
+@router.get("/{room_id}", response_model=schemas.MeetingResponse)
+def get_meeting_by_room_id(room_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve and validate a meeting by its unique room_id.
+    Returns 404 if the meeting room does not exist.
+    """
+    meeting = db.query(models.Meeting).filter(models.Meeting.room_id == room_id).first()
+    if not meeting:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Meeting room '{room_id}' not found."
+        )
+    return meeting
+
+
+@router.post("/{room_id}/recordings", response_model=schemas.RecordingResponse, status_code=status.HTTP_201_CREATED)
+def create_meeting_recording(room_id: str, recording_in: schemas.RecordingCreate, db: Session = Depends(get_db)):
+    """
+    Save meeting recording metadata to the database.
+    """
+    meeting = db.query(models.Meeting).filter(models.Meeting.room_id == room_id).first()
+    if not meeting:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Meeting room '{room_id}' not found."
+        )
+
+    db_rec = models.Recording(
+        meeting_id=meeting.id,
+        file_name=recording_in.file_name,
+        file_size_bytes=recording_in.file_size_bytes,
+        duration_seconds=recording_in.duration_seconds,
+        recording_url=recording_in.recording_url or f"/recordings/{recording_in.file_name}",
+        created_at=datetime.now(timezone.utc)
+    )
+    db.add(db_rec)
+    db.commit()
+    db.refresh(db_rec)
+    return db_rec
+
+
+@router.get("/{room_id}/recordings", response_model=List[schemas.RecordingResponse])
+def get_meeting_recordings(room_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve all recordings saved for a specific meeting room.
+    """
+    meeting = db.query(models.Meeting).filter(models.Meeting.room_id == room_id).first()
+    if not meeting:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Meeting room '{room_id}' not found."
+        )
+    return meeting.recordings
+

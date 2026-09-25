@@ -69,3 +69,23 @@ class ParticipantResponse(ParticipantBase):
 class HealthCheckResponse(BaseModel):
     status: str
     message: str
+
+
+class RecordingCreate(BaseModel):
+    file_name: str
+    file_size_bytes: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    recording_url: Optional[str] = None
+
+
+class RecordingResponse(BaseModel):
+    id: int
+    meeting_id: int
+    file_name: str
+    file_size_bytes: Optional[int] = None
+    duration_seconds: Optional[int] = None
+    recording_url: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True

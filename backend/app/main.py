@@ -103,5 +103,8 @@ def trigger_database_seed():
 
 
 
+from app.routers import meetings, websocket
+
 app.include_router(meetings.router)
+app.include_router(websocket.router)
 

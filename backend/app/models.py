@@ -36,6 +36,7 @@ class Meeting(Base):
     # Relationships
     host = relationship("User", back_populates="meetings")
     participants = relationship("Participant", back_populates="meeting", cascade="all, delete-orphan")
+    recordings = relationship("Recording", back_populates="meeting", cascade="all, delete-orphan")
 
 
 class Participant(Base):
@@ -52,3 +53,18 @@ class Participant(Base):
     # Relationships
     meeting = relationship("Meeting", back_populates="participants")
     user = relationship("User", back_populates="participants")
+
+
+class Recording(Base):
+    __tablename__ = "recordings"
+
+    id = Column(Integer, primary_key=True, index=True)
+    meeting_id = Column(Integer, ForeignKey("meetings.id"), nullable=False)
+    file_name = Column(String, nullable=False)
+    file_size_bytes = Column(Integer, nullable=True)
+    duration_seconds = Column(Integer, nullable=True)
+    recording_url = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    # Relationships
+    meeting = relationship("Meeting", back_populates="recordings")

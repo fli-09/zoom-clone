@@ -10,6 +10,7 @@ export interface VideoTileProps {
   participant: MeetingParticipant;
   isLocal?: boolean;
   isScreenSharing?: boolean;
+  mediaStream?: MediaStream | null;
   className?: string;
 }
 
@@ -17,21 +18,37 @@ export function VideoTile({
   participant,
   isLocal = false,
   isScreenSharing = false,
+  mediaStream = null,
   className,
 }: VideoTileProps) {
+  // Callback ref guarantees srcObject is attached whenever the <video> element mounts or remounts
+  const setVideoRef = React.useCallback(
+    (node: HTMLVideoElement | null) => {
+      if (node) {
+        if (mediaStream) {
+          node.srcObject = mediaStream;
+          node.play().catch(() => {});
+        } else {
+          node.srcObject = null;
+        }
+      }
+    },
+    [mediaStream]
+  );
+
   return (
     <div
       className={cn(
         "relative rounded-2xl bg-dark-surface border overflow-hidden flex items-center justify-center transition-all duration-200 select-none group aspect-video sm:aspect-auto",
         isScreenSharing && "ring-2 ring-emerald-500/80",
         participant.isSpeaking
-          ? "border-emerald-500 shadow-md shadow-emerald-500/20"
+          ? "border-emerald-400 ring-4 ring-emerald-500/40 shadow-xl shadow-emerald-500/25"
           : "border-dark-border",
         className
       )}
     >
       {/* Participant Video / Avatar Display */}
-      {participant.isVideoOff ? (
+      {participant.isVideoOff || !mediaStream ? (
         <div className="flex flex-col items-center justify-center gap-3">
           <Avatar
             name={participant.name}
@@ -43,17 +60,20 @@ export function VideoTile({
           </span>
         </div>
       ) : (
-        <div className="relative w-full h-full bg-slate-900/90 flex items-center justify-center">
-          {/* Simulated webcam stream / avatar */}
-          <Avatar
-            name={participant.name}
-            size="xl"
-            className="ring-4 ring-brand/20 shadow-2xl"
+        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+          <video
+            ref={setVideoRef}
+            autoPlay
+            playsInline
+            muted={isLocal}
+            className={cn(
+              "w-full h-full object-cover",
+              isLocal && !isScreenSharing && "scale-x-[-1]"
+            )}
           />
 
-          {/* Subtly animated simulated audio wave when speaking */}
           {participant.isSpeaking && (
-            <div className="absolute inset-0 border-2 border-emerald-500/80 rounded-2xl pointer-events-none animate-pulse-subtle" />
+            <div className="absolute inset-0 border-4 border-emerald-400 rounded-2xl pointer-events-none animate-pulse z-10" />
           )}
         </div>
       )}
