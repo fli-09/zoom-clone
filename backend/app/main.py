@@ -25,12 +25,16 @@ app = FastAPI(
 # Parse CORS_ORIGINS from environment variable (comma-separated list).
 # Env-driven configuration avoids hardcoding production Vercel/Netlify frontend domains
 # into source code, allowing flexible cross-origin requests per deployment environment.
-cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000")
+cors_origins_raw = os.getenv(
+    "CORS_ORIGINS",
+    "http://localhost:3000,https://zoom-clone-two-lilac.vercel.app"
+)
 allowed_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
 
 app.add_middleware(
     CORSMiddleware,
     allow_origins=allowed_origins,
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
