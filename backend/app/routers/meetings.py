@@ -111,3 +111,4 @@ def create_instant_meeting(db: Session = Depends(get_db)):
         db.commit()
 
     return db_meeting
+
