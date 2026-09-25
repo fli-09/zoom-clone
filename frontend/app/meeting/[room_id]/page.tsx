@@ -160,13 +160,13 @@ function MeetingRoomContent() {
       if (audioTrack && audioTransceiver) {
         audioTransceiver.sender.replaceTrack(audioTrack).catch(() => {});
       } else if (audioTrack) {
-        try { pc.addTrack(audioTrack, currentStream); } catch {}
+        try { pc.addTrack(audioTrack, currentStream); } catch (_) {}
       }
 
       if (videoTrack && videoTransceiver) {
         videoTransceiver.sender.replaceTrack(videoTrack).catch(() => {});
       } else if (videoTrack) {
-        try { pc.addTrack(videoTrack, currentStream); } catch {}
+        try { pc.addTrack(videoTrack, currentStream); } catch (_) {}
       }
     }
 
@@ -266,13 +266,13 @@ function MeetingRoomContent() {
             if (audioTrack && audioTransceiver) {
               audioTransceiver.sender.replaceTrack(audioTrack).catch(() => {});
             } else if (audioTrack) {
-              try { pc.addTrack(audioTrack, stream); } catch {}
+              try { pc.addTrack(audioTrack, stream); } catch (_) {}
             }
 
             if (videoTrack && videoTransceiver) {
               videoTransceiver.sender.replaceTrack(videoTrack).catch(() => {});
             } else if (videoTrack) {
-              try { pc.addTrack(videoTrack, stream); } catch {}
+              try { pc.addTrack(videoTrack, stream); } catch (_) {}
             }
           }
         }
@@ -724,7 +724,7 @@ function MeetingRoomContent() {
               if (videoSender) {
                 await videoSender.replaceTrack(screenTrack).catch((e) => console.warn(e));
               } else {
-                try { pc.addTrack(screenTrack, stream); } catch {}
+                try { pc.addTrack(screenTrack, stream); } catch (_) {}
               }
             }
           }
