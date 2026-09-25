@@ -71,11 +71,12 @@ export function VideoTile({
               isLocal && !isScreenSharing && "scale-x-[-1]"
             )}
           />
-
-          {participant.isSpeaking && (
-            <div className="absolute inset-0 border-4 border-emerald-400 rounded-2xl pointer-events-none animate-pulse z-10" />
-          )}
         </div>
+      )}
+
+      {/* Active speaker prominent glowing border (visible on both video and avatar) */}
+      {participant.isSpeaking && (
+        <div className="absolute inset-0 border-4 border-emerald-400 rounded-2xl pointer-events-none animate-pulse z-20" />
       )}
 
       {/* Top Indicators: Hand Raised & Pin */}

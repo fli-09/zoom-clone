@@ -143,6 +143,44 @@ async def meeting_websocket_endpoint(
                     "type": "host_muted_all"
                 })
 
+            elif msg_type == "webrtc_offer":
+                # Forward SDP offer to target peer
+                target_id = msg.get("target_id")
+                if target_id and room_id in manager.rooms and target_id in manager.rooms[room_id]:
+                    await manager.rooms[room_id][target_id]["ws"].send_json({
+                        "type": "webrtc_offer",
+                        "sender_id": participant_id,
+                        "sdp": msg.get("sdp")
+                    })
+
+            elif msg_type == "webrtc_answer":
+                # Forward SDP answer to target peer
+                target_id = msg.get("target_id")
+                if target_id and room_id in manager.rooms and target_id in manager.rooms[room_id]:
+                    await manager.rooms[room_id][target_id]["ws"].send_json({
+                        "type": "webrtc_answer",
+                        "sender_id": participant_id,
+                        "sdp": msg.get("sdp")
+                    })
+
+            elif msg_type == "webrtc_ice":
+                # Forward ICE candidate to target peer
+                target_id = msg.get("target_id")
+                if target_id and room_id in manager.rooms and target_id in manager.rooms[room_id]:
+                    await manager.rooms[room_id][target_id]["ws"].send_json({
+                        "type": "webrtc_ice",
+                        "sender_id": participant_id,
+                        "candidate": msg.get("candidate")
+                    })
+
+            elif msg_type == "screen_share_status":
+                # Broadcast screen share status
+                await manager.broadcast_except(room_id, participant_id, {
+                    "type": "screen_share_status",
+                    "participant_id": participant_id,
+                    "isSharing": msg.get("isSharing", False)
+                })
+
             elif msg_type == "remove_participant":
                 target_id = msg.get("target_id")
                 if target_id and room_id in manager.rooms and target_id in manager.rooms[room_id]:
