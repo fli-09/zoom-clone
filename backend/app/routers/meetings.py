@@ -112,3 +112,18 @@ def create_instant_meeting(db: Session = Depends(get_db)):
 
     return db_meeting
 
+
+@router.get("/{room_id}", response_model=schemas.MeetingResponse)
+def get_meeting_by_room_id(room_id: str, db: Session = Depends(get_db)):
+    """
+    Retrieve and validate a meeting by its unique room_id.
+    Returns 404 if the meeting room does not exist.
+    """
+    meeting = db.query(models.Meeting).filter(models.Meeting.room_id == room_id).first()
+    if not meeting:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Meeting room '{room_id}' not found."
+        )
+    return meeting
+

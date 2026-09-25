@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useState, useEffect, useRef, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   ShieldCheck,
@@ -22,17 +22,28 @@ import { copyToClipboard } from "@/lib/utils";
 function MeetingRoomContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { success } = useToast();
 
   const rawRoomId = params?.room_id as string;
   const roomId = rawRoomId || "zoom-meeting";
 
+  // Initial params passed from Join Modal
+  const displayName = searchParams?.get("name") || "Alex Johnson";
+  const initialMuted = searchParams?.get("muted") === "1";
+  const initialVideoOff = searchParams?.get("videoOff") === "1";
+
   // Meeting states
-  const [isMuted, setIsMuted] = useState(false);
-  const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isMuted, setIsMuted] = useState(initialMuted);
+  const [isVideoOff, setIsVideoOff] = useState(initialVideoOff);
   const [isSharing, setIsSharing] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [isHandRaised, setIsHandRaised] = useState(false);
+
+  // Live media streams
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [screenStream, setScreenStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Panels
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
@@ -65,14 +76,72 @@ function MeetingRoomContent() {
     return `${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
   };
 
-  // Simulated participants
+  // Initialize live local webcam/microphone stream
+  useEffect(() => {
+    let mounted = true;
+
+    async function initUserMedia() {
+      try {
+        if (typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+          const stream = await navigator.mediaDevices.getUserMedia({
+            video: true,
+            audio: true,
+          });
+          if (!mounted) {
+            stream.getTracks().forEach((track) => track.stop());
+            return;
+          }
+          streamRef.current = stream;
+          // Apply initial audio & video track toggles
+          stream.getAudioTracks().forEach((t) => {
+            t.enabled = !initialMuted;
+          });
+          stream.getVideoTracks().forEach((t) => {
+            t.enabled = !initialVideoOff;
+          });
+          setLocalStream(stream);
+        }
+      } catch (err) {
+        console.warn("Camera/Microphone permission denied or device unavailable:", err);
+      }
+    }
+
+    initUserMedia();
+
+    return () => {
+      mounted = false;
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach((track) => track.stop());
+      }
+    };
+  }, [initialMuted, initialVideoOff]);
+
+  // Sync mute state with live audio tracks
+  useEffect(() => {
+    if (localStream) {
+      localStream.getAudioTracks().forEach((track) => {
+        track.enabled = !isMuted;
+      });
+    }
+  }, [isMuted, localStream]);
+
+  // Sync camera state with live video tracks
+  useEffect(() => {
+    if (localStream) {
+      localStream.getVideoTracks().forEach((track) => {
+        track.enabled = !isVideoOff;
+      });
+    }
+  }, [isVideoOff, localStream]);
+
+  // Participants
   const [participants, setParticipants] = useState<MeetingParticipant[]>([
     {
       id: "local-user",
-      name: "Alex Johnson",
+      name: displayName,
       role: "host",
-      isMuted: false,
-      isVideoOff: false,
+      isMuted: initialMuted,
+      isVideoOff: initialVideoOff,
       isSpeaking: false,
     },
     {
@@ -100,6 +169,7 @@ function MeetingRoomContent() {
         p.id === "local-user"
           ? {
               ...p,
+              name: displayName,
               isMuted,
               isVideoOff,
               isHandRaised,
@@ -107,7 +177,7 @@ function MeetingRoomContent() {
           : p
       )
     );
-  }, [isMuted, isVideoOff, isHandRaised]);
+  }, [isMuted, isVideoOff, isHandRaised, displayName]);
 
   // Chat messages
   const [messages, setMessages] = useState<ChatMessage[]>([
@@ -144,6 +214,52 @@ function MeetingRoomContent() {
     ]);
   };
 
+  const handleToggleShare = async () => {
+    if (isSharing) {
+      if (screenStream) {
+        screenStream.getTracks().forEach((t) => t.stop());
+        setScreenStream(null);
+      }
+      setIsSharing(false);
+    } else {
+      try {
+        if (typeof navigator !== "undefined" && navigator.mediaDevices?.getDisplayMedia) {
+          const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+          setScreenStream(stream);
+          setIsSharing(true);
+          success("Screen sharing started");
+          stream.getVideoTracks()[0].onended = () => {
+            setIsSharing(false);
+            setScreenStream(null);
+          };
+        }
+      } catch (err) {
+        console.warn("Screen share cancelled:", err);
+      }
+    }
+  };
+
+  const handleStopSharing = () => {
+    if (screenStream) {
+      screenStream.getTracks().forEach((t) => t.stop());
+      setScreenStream(null);
+    }
+    setIsSharing(false);
+  };
+
+  const handleMuteAll = () => {
+    setParticipants((prev) =>
+      prev.map((p) => (p.id !== "local-user" ? { ...p, isMuted: true } : p))
+    );
+    success("All participants have been muted");
+  };
+
+  const handleRemoveParticipant = (id: string | number) => {
+    const target = participants.find((p) => p.id === id);
+    setParticipants((prev) => prev.filter((p) => p.id !== id));
+    success(`${target?.name || "Participant"} removed from meeting`);
+  };
+
   const handleCopyInvite = async () => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     const inviteUrl = `${origin}/meeting/${roomId}`;
@@ -163,6 +279,12 @@ function MeetingRoomContent() {
   };
 
   const handleLeave = () => {
+    if (localStream) {
+      localStream.getTracks().forEach((t) => t.stop());
+    }
+    if (screenStream) {
+      screenStream.getTracks().forEach((t) => t.stop());
+    }
     router.push("/");
   };
 
@@ -215,7 +337,7 @@ function MeetingRoomContent() {
       {/* Screen Share Alert Banner */}
       <ScreenShareBanner
         isSharing={isSharing}
-        onStopSharing={() => setIsSharing(false)}
+        onStopSharing={handleStopSharing}
       />
 
       {/* Main Video Stage & Side Panels */}
@@ -244,6 +366,13 @@ function MeetingRoomContent() {
                 participant={p}
                 isLocal={p.id === "local-user"}
                 isScreenSharing={isSharing && p.id === "local-user"}
+                mediaStream={
+                  p.id === "local-user"
+                    ? isSharing
+                      ? screenStream || localStream
+                      : localStream
+                    : null
+                }
                 className="w-full h-full max-h-[420px]"
               />
             ))}
@@ -256,6 +385,8 @@ function MeetingRoomContent() {
           onClose={() => setIsParticipantsOpen(false)}
           participants={participants}
           roomId={roomId}
+          onMuteAll={handleMuteAll}
+          onRemoveParticipant={handleRemoveParticipant}
         />
 
         {/* Chat Panel */}
@@ -279,7 +410,7 @@ function MeetingRoomContent() {
         participantCount={participants.length}
         onToggleMic={() => setIsMuted(!isMuted)}
         onToggleVideo={() => setIsVideoOff(!isVideoOff)}
-        onToggleShare={() => setIsSharing(!isSharing)}
+        onToggleShare={handleToggleShare}
         onToggleRecording={() => {
           setIsRecording(!isRecording);
           success(
@@ -310,7 +441,15 @@ function MeetingRoomContent() {
 export default function MeetingRoomPage() {
   return (
     <ToastProvider>
-      <MeetingRoomContent />
+      <Suspense
+        fallback={
+          <div className="h-screen w-screen bg-[#07090C] flex items-center justify-center text-slate-400 text-sm">
+            Connecting to meeting room...
+          </div>
+        }
+      >
+        <MeetingRoomContent />
+      </Suspense>
     </ToastProvider>
   );
 }
