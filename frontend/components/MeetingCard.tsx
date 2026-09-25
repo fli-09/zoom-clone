@@ -2,34 +2,29 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Clock, Copy, Check, Video, ArrowRight } from "lucide-react";
+import { Clock, Copy, Check, Video } from "lucide-react";
 import { MeetingResponse } from "@/lib/types";
-import { formatMeetingDate, formatDuration, copyToClipboard, cn } from "@/lib/utils";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { useToast } from "@/components/ui/Toast";
+import { formatMeetingDate, formatDuration, copyToClipboard } from "@/lib/utils";
 
 export interface MeetingCardProps {
   meeting: MeetingResponse;
   variant?: "upcoming" | "recent";
-  className?: string;
 }
 
 /**
  * MeetingCard Component
- * Displays meeting metadata, duration, start time, copy invite link, and instant start/join action.
+ * Displays meeting title, formatted start time, duration, copy-invite-link button, and Start/Rejoin CTA.
  */
 export function MeetingCard({
   meeting,
   variant = "upcoming",
-  className,
 }: MeetingCardProps) {
-  const { success } = useToast();
   const [copied, setCopied] = useState(false);
 
   const { date, time, relative } = formatMeetingDate(meeting.start_time);
   const durationText = formatDuration(meeting.duration);
 
+  // Copy meeting invite link to clipboard
   const handleCopy = async (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
@@ -38,97 +33,81 @@ export function MeetingCard({
     const ok = await copyToClipboard(inviteUrl);
     if (ok) {
       setCopied(true);
-      success("Invite link copied to clipboard");
       setTimeout(() => setCopied(false), 2000);
     }
   };
 
-  const isLive =
-    meeting.status === "in_progress" || meeting.status === "IN_PROGRESS";
-
   return (
-    <div
-      className={cn(
-        "group relative flex flex-col justify-between p-5 rounded-2xl border border-dark-border bg-dark-surface hover:bg-dark-card hover:border-slate-700 transition-all duration-200 shadow-card",
-        isLive && "border-brand/40 shadow-glow",
-        className
-      )}
-    >
+    <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between">
       <div>
-        {/* Top Badges */}
+        {/* Top Header: Badge & Copy Button */}
         <div className="flex items-center justify-between gap-2 mb-3">
-          <div className="flex items-center gap-2">
-            {isLive ? (
-              <Badge variant="danger" dot size="sm">
-                LIVE NOW
-              </Badge>
-            ) : variant === "upcoming" ? (
-              <Badge variant="brand" dot size="sm">
-                {relative}
-              </Badge>
-            ) : (
-              <Badge variant="default" size="sm">
-                Concluded
-              </Badge>
-            )}
-            <Badge variant="outline" size="sm">
-              {durationText}
-            </Badge>
-          </div>
+          <span
+            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+              variant === "upcoming"
+                ? "bg-blue-50 text-[#0E71EB] border border-blue-100"
+                : "bg-slate-100 text-slate-600 border border-slate-200"
+            }`}
+          >
+            {variant === "upcoming" ? relative : "Ended"}
+          </span>
 
           <button
             onClick={handleCopy}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
-            title="Copy Invite Link"
-            aria-label="Copy Invite Link"
+            className="flex items-center gap-1 text-xs text-slate-500 hover:text-[#0E71EB] p-1.5 rounded-lg hover:bg-slate-50 transition-colors"
+            title="Copy invite link"
           >
             {copied ? (
-              <Check className="w-4 h-4 text-emerald-400" />
+              <>
+                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-emerald-600 font-medium">Copied</span>
+              </>
             ) : (
-              <Copy className="w-4 h-4" />
+              <>
+                <Copy className="w-3.5 h-3.5" />
+                <span>Copy Link</span>
+              </>
             )}
           </button>
         </div>
 
         {/* Meeting Title */}
-        <h3 className="text-sm font-semibold text-slate-100 group-hover:text-white line-clamp-1">
+        <h3 className="text-base font-bold text-slate-900 line-clamp-1">
           {meeting.title}
         </h3>
 
-        {/* Description if present */}
+        {/* Start Time & Duration */}
+        <div className="flex items-center gap-2 text-xs text-slate-500 mt-2">
+          <Clock className="w-3.5 h-3.5 text-slate-400" />
+          <span>
+            {date} at {time} ({durationText})
+          </span>
+        </div>
+
         {meeting.description && (
-          <p className="text-xs text-slate-400 mt-1 line-clamp-2">
+          <p className="text-xs text-slate-600 mt-2 line-clamp-2">
             {meeting.description}
           </p>
         )}
-
-        {/* Date and Room ID */}
-        <div className="flex items-center gap-2 text-xs text-slate-400 mt-3 pt-3 border-t border-dark-border/60">
-          <div className="flex items-center gap-1.5">
-            <Clock className="w-3.5 h-3.5 text-slate-500" />
-            <span>
-              {time} • {date}
-            </span>
-          </div>
-        </div>
       </div>
 
-      {/* Action Footer */}
-      <div className="mt-4 pt-3 flex items-center justify-between gap-3">
-        <span className="font-mono text-[11px] text-slate-500 truncate">
+      {/* Footer: Room ID & Start Action */}
+      <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between gap-3">
+        <span className="text-xs font-mono text-slate-400 truncate">
           ID: {meeting.room_id}
         </span>
 
         <Link href={`/meeting/${meeting.room_id}`}>
-          <Button
-            variant={variant === "upcoming" ? "primary" : "secondary"}
-            size="sm"
-            className="gap-1.5"
+          <button
+            className={`inline-flex items-center gap-1.5 px-4 py-1.5 rounded-xl text-xs font-semibold shadow-xs transition-colors ${
+              variant === "upcoming"
+                ? "bg-[#0E71EB] hover:bg-blue-600 text-white"
+                : "bg-slate-100 hover:bg-slate-200 text-slate-800"
+            }`}
           >
             <Video className="w-3.5 h-3.5" />
             <span>{variant === "upcoming" ? "Start" : "Rejoin"}</span>
-            <ArrowRight className="w-3 h-3 ml-0.5" />
-          </Button>
+          </button>
         </Link>
       </div>
     </div>

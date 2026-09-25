@@ -16,7 +16,7 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Zoom - Video Conferencing, Cloud Meetings & Group Chat",
   description:
-    "Modern, high-performance video conferencing and online meetings application built with Next.js and FastAPI.",
+    "Video conferencing and online meetings application built with Next.js and FastAPI.",
 };
 
 export default function RootLayout({
@@ -25,9 +25,9 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-dark-bg text-slate-100 min-h-screen`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F7F9FC] text-slate-900 min-h-screen`}
       >
         {children}
       </body>
