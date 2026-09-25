@@ -18,10 +18,8 @@ import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { Calendar, Clock, RefreshCw, AlertCircle } from "lucide-react";
-import { useToast } from "@/components/ui/Toast";
 
 export default function DashboardPage() {
-  const { error } = useToast();
 
   const [upcomingMeetings, setUpcomingMeetings] = useState<MeetingResponse[]>([]);
   const [recentMeetings, setRecentMeetings] = useState<MeetingResponse[]>([]);
@@ -55,11 +53,10 @@ export default function DashboardPage() {
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Failed to load meetings data";
       setFetchError(msg);
-      error(msg);
     } finally {
       setLoading(false);
     }
-  }, [error]);
+  }, []);
 
   useEffect(() => {
     loadData();

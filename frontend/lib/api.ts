@@ -11,7 +11,8 @@ export type {
 } from "./types";
 
 const API_URL =
-  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") || "http://localhost:8000";
+  process.env.NEXT_PUBLIC_API_URL?.replace(/\/+$/, "") ||
+  "https://zoom-clone-backend-uot2.onrender.com";
 
 /**
  * Fetch backend health status.
