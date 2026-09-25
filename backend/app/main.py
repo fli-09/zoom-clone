@@ -75,7 +75,6 @@ def health_check():
         message="Backend is operational"
     )
 
-
 @app.post("/api/seed", tags=["admin"])
 def trigger_database_seed():
     """
@@ -96,6 +95,8 @@ def trigger_database_seed():
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content={"detail": "Failed to seed database", "error": str(e)}
         )
+
+
 
 
 app.include_router(meetings.router)
