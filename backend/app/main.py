@@ -22,10 +22,9 @@ app = FastAPI(
     version="1.0.0"
 )
 
-# Parse allowed origins from CORS_ORIGINS environment variable (comma-separated list).
-# Why env-driven: This avoids hardcoding future deployment domains (such as Vercel, Netlify, or custom domains)
-# directly into source code, defaulting to ["http://localhost:3000"] for local development while allowing
-# dynamic configuration across staging and production environments.
+# Parse CORS_ORIGINS from environment variable (comma-separated list).
+# Env-driven configuration avoids hardcoding production Vercel/Netlify frontend domains
+# into source code, allowing flexible cross-origin requests per deployment environment.
 cors_origins_raw = os.getenv("CORS_ORIGINS", "http://localhost:3000")
 allowed_origins = [origin.strip() for origin in cors_origins_raw.split(",") if origin.strip()]
 
