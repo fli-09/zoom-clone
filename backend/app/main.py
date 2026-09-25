@@ -76,5 +76,27 @@ def health_check():
     )
 
 
+@app.post("/api/seed", tags=["admin"])
+def trigger_database_seed():
+    """
+    Manually trigger database seeding.
+    Creates default user and initial meetings/participants if they do not exist.
+    Idempotent: safe to run multiple times without duplicating data.
+    """
+    from app.seed import seed_database
+    try:
+        seed_database()
+        return {
+            "status": "ok",
+            "message": "Database seeded successfully!"
+        }
+    except Exception as e:
+        logger.error(f"Manual seed failed: {e}", exc_info=True)
+        return JSONResponse(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            content={"detail": "Failed to seed database", "error": str(e)}
+        )
+
+
 app.include_router(meetings.router)
 
