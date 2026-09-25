@@ -1,5 +1,5 @@
 /**
- * Shared TypeScript types matching backend FastAPI schemas.
+ * TypeScript types matching backend FastAPI schemas.
  */
 
 export type MeetingStatus =
@@ -58,4 +58,26 @@ export interface ParticipantResponse extends ParticipantBase {
 export interface HealthCheckResponse {
   status: string;
   message: string;
+}
+
+/**
+ * UI Specific Types for Meeting Room & Interactions
+ */
+export interface MeetingParticipant {
+  id: string | number;
+  name: string;
+  role?: "host" | "participant";
+  isMuted?: boolean;
+  isVideoOff?: boolean;
+  isHandRaised?: boolean;
+  isSpeaking?: boolean;
+  avatarUrl?: string;
+}
+
+export interface ChatMessage {
+  id: string;
+  sender: string;
+  timestamp: string;
+  text: string;
+  isMe?: boolean;
 }

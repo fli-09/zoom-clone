@@ -2,46 +2,40 @@
 
 import React from "react";
 import Link from "next/link";
-import { Video, Settings, User } from "lucide-react";
+import { Video, Settings } from "lucide-react";
+import { Avatar } from "@/components/ui/Avatar";
 
 /**
  * Navbar Component
- * Zoom-style header with logo, user profile avatar placeholder, and settings placeholder.
+ * Minimalist top navbar with logo, settings placeholder, and user profile avatar.
  */
 export function Navbar() {
   return (
-    <header className="h-16 px-6 bg-white border-b border-slate-200 flex items-center justify-between sticky top-0 z-30 shadow-xs">
-      {/* Brand Logo */}
+    <header className="h-16 px-6 border-b border-dark-border bg-dark-surface/90 backdrop-blur-md flex items-center justify-between sticky top-0 z-30">
       <Link href="/" className="flex items-center gap-2.5 group">
-        <div className="w-9 h-9 rounded-xl bg-[#0E71EB] flex items-center justify-center text-white shadow-sm transition-transform group-hover:scale-105">
-          <Video className="w-5 h-5 fill-white" />
+        <div className="w-8 h-8 rounded-xl bg-brand flex items-center justify-center text-white shadow-md shadow-brand/30 transition-transform group-hover:scale-105">
+          <Video className="w-4 h-4 fill-white" />
         </div>
-        <div className="flex items-baseline gap-1">
-          <span className="text-xl font-bold tracking-tight text-[#0E71EB]">
+        <div className="flex items-baseline gap-1.5">
+          <span className="text-lg font-bold tracking-tight text-white">
             zoom
           </span>
-          <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider ml-1">
-            Workplace
+          <span className="text-[10px] font-semibold tracking-wider uppercase px-1.5 py-0.5 rounded bg-brand/15 text-brand-hover border border-brand/20">
+            Pro
           </span>
         </div>
       </Link>
 
-      {/* Right Controls */}
       <div className="flex items-center gap-3">
         <button
-          className="p-2 rounded-lg text-slate-500 hover:text-slate-800 hover:bg-slate-100 transition-colors"
-          title="Settings"
+          className="p-2 rounded-xl text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-colors"
           aria-label="Settings"
         >
-          <Settings className="w-5 h-5" />
+          <Settings className="w-4 h-4" />
         </button>
 
-        <div
-          className="w-9 h-9 rounded-full bg-slate-100 border border-slate-200 flex items-center justify-center text-slate-600 hover:bg-slate-200 transition-colors cursor-pointer"
-          title="Profile"
-          aria-label="Profile"
-        >
-          <User className="w-4 h-4" />
+        <div className="flex items-center gap-2 cursor-pointer">
+          <Avatar name="Default User" size="sm" status="online" />
         </div>
       </div>
     </header>
