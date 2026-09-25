@@ -44,8 +44,8 @@ function MeetingRoomContent() {
   const queryMuted = searchParams?.get("muted") === "1";
   const queryVideoOff = searchParams?.get("videoOff") === "1";
 
-  // Pre-join status: if name is provided in URL, user can join directly, else show lobby
-  const [hasJoined, setHasJoined] = useState<boolean>(Boolean(queryName && queryName.trim()));
+  // Pre-join status: every user verifies name and previews camera/mic in PreJoinLobby
+  const [hasJoined, setHasJoined] = useState<boolean>(false);
   const [displayName, setDisplayName] = useState<string>(queryName || "");
   const [participantId] = useState<string>(() => `user-${Math.random().toString(36).substring(2, 9)}`);
 
@@ -71,6 +71,8 @@ function MeetingRoomContent() {
 
   // WebRTC PeerConnections map: remoteParticipantId -> RTCPeerConnection
   const peerConnectionsRef = useRef<{ [id: string]: RTCPeerConnection }>({});
+  // ICE candidate queue for candidates arriving before remote description is ready
+  const pendingIceCandidatesRef = useRef<{ [id: string]: RTCIceCandidateInit[] }>({});
 
   // Panels
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
@@ -134,26 +136,65 @@ function MeetingRoomContent() {
 
     const pc = new RTCPeerConnection(RTC_CONFIG);
 
-    // Add local tracks to this peer connection
+    // Add audio and video transceivers to ensure bidirectional media lines in SDP offer/answer
+    try {
+      pc.addTransceiver("audio", { direction: "sendrecv" });
+      pc.addTransceiver("video", { direction: "sendrecv" });
+    } catch (e) {
+      console.warn("addTransceiver fallback:", e);
+    }
+
+    // Attach active local tracks to transceivers or peer connection
     const currentStream = isSharingRef.current
       ? screenStreamRef.current || localStreamRef.current
       : localStreamRef.current;
 
     if (currentStream) {
-      currentStream.getTracks().forEach((track) => {
-        pc.addTrack(track, currentStream);
-      });
+      const transceivers = pc.getTransceivers();
+      const audioTransceiver = transceivers.find((t) => t.receiver.track.kind === "audio");
+      const videoTransceiver = transceivers.find((t) => t.receiver.track.kind === "video");
+
+      const audioTrack = currentStream.getAudioTracks()[0];
+      const videoTrack = currentStream.getVideoTracks()[0];
+
+      if (audioTrack && audioTransceiver) {
+        audioTransceiver.sender.replaceTrack(audioTrack).catch(() => {});
+      } else if (audioTrack) {
+        try { pc.addTrack(audioTrack, currentStream); } catch (_) {}
+      }
+
+      if (videoTrack && videoTransceiver) {
+        videoTransceiver.sender.replaceTrack(videoTrack).catch(() => {});
+      } else if (videoTrack) {
+        try { pc.addTrack(videoTrack, currentStream); } catch (_) {}
+      }
     }
 
     // When remote track is received from this peer
     pc.ontrack = (event) => {
-      const incomingStream = event.streams[0];
-      if (incomingStream) {
-        setRemoteStreams((prev) => ({
+      console.log(`[WebRTC] Received remote track: kind=${event.track.kind} id=${event.track.id} from ${targetId}`);
+      setRemoteStreams((prev) => {
+        const existing = prev[targetId];
+        // Create a new MediaStream instance to trigger React state updates
+        const updatedStream = existing ? new MediaStream(existing.getTracks()) : new MediaStream();
+
+        if (!updatedStream.getTracks().some((t) => t.id === event.track.id)) {
+          updatedStream.addTrack(event.track);
+        }
+
+        if (event.streams && event.streams[0]) {
+          event.streams[0].getTracks().forEach((t) => {
+            if (!updatedStream.getTracks().some((ex) => ex.id === t.id)) {
+              updatedStream.addTrack(t);
+            }
+          });
+        }
+
+        return {
           ...prev,
-          [targetId]: incomingStream,
-        }));
-      }
+          [targetId]: updatedStream,
+        };
+      });
     };
 
     // When ICE candidate is generated
@@ -185,15 +226,17 @@ function MeetingRoomContent() {
     setIsVideoOff(chosenVideoOff);
     if (stream) {
       localStreamRef.current = stream;
+      stream.getAudioTracks().forEach((t) => (t.enabled = !chosenMuted));
+      stream.getVideoTracks().forEach((t) => (t.enabled = !chosenVideoOff));
       setLocalStream(stream);
     }
     setHasJoined(true);
   };
 
-  // Initialize media if joined directly via query params
+  // Fallback media initialization if stream was not available from lobby
   useEffect(() => {
     if (!hasJoined) return;
-    if (localStreamRef.current) return;
+    if (localStreamRef.current && localStreamRef.current.getTracks().length > 0) return;
 
     let mounted = true;
     async function initMedia() {
@@ -212,15 +255,29 @@ function MeetingRoomContent() {
           stream.getVideoTracks().forEach((t) => (t.enabled = !isVideoOff));
           setLocalStream(stream);
 
-          // Add newly initialized tracks to any active peer connections
+          // Update active transceivers / senders on all active peer connections
           for (const pc of Object.values(peerConnectionsRef.current)) {
-            stream.getTracks().forEach((track) => {
-              pc.addTrack(track, stream);
-            });
+            const transceivers = pc.getTransceivers();
+            const audioTransceiver = transceivers.find((t) => t.receiver.track.kind === "audio");
+            const videoTransceiver = transceivers.find((t) => t.receiver.track.kind === "video");
+            const audioTrack = stream.getAudioTracks()[0];
+            const videoTrack = stream.getVideoTracks()[0];
+
+            if (audioTrack && audioTransceiver) {
+              audioTransceiver.sender.replaceTrack(audioTrack).catch(() => {});
+            } else if (audioTrack) {
+              try { pc.addTrack(audioTrack, stream); } catch (_) {}
+            }
+
+            if (videoTrack && videoTransceiver) {
+              videoTransceiver.sender.replaceTrack(videoTrack).catch(() => {});
+            } else if (videoTrack) {
+              try { pc.addTrack(videoTrack, stream); } catch (_) {}
+            }
           }
         }
       } catch (err) {
-        console.warn("Direct media init: permissions denied or camera unavailable", err);
+        console.warn("Direct media init fallback failed:", err);
       }
     }
 
@@ -406,26 +463,43 @@ function MeetingRoomContent() {
           success(`${newP.name} joined the meeting`);
         } else if (data.type === "participant_left") {
           // A participant disconnected
-          const leftId = data.participant_id;
+          const leftId = String(data.participant_id);
           if (peerConnectionsRef.current[leftId]) {
             peerConnectionsRef.current[leftId].close();
             delete peerConnectionsRef.current[leftId];
+          }
+          if (pendingIceCandidatesRef.current[leftId]) {
+            delete pendingIceCandidatesRef.current[leftId];
           }
           setRemoteStreams((prev) => {
             const copy = { ...prev };
             delete copy[leftId];
             return copy;
           });
-          setParticipants((prev) => prev.filter((p) => p.id !== leftId));
-          if (remoteScreenSharer === leftId) {
+          setParticipants((prev) => prev.filter((p) => String(p.id) !== leftId));
+          if (String(remoteScreenSharer) === leftId) {
             setRemoteScreenSharer(null);
           }
         } else if (data.type === "webrtc_offer") {
           // Received WebRTC offer from a peer
-          const senderId = data.sender_id;
+          const senderId = String(data.sender_id);
           const pc = getOrCreatePeerConnection(senderId);
           try {
             await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+
+            // Flush pending ICE candidates for this peer
+            const pending = pendingIceCandidatesRef.current[senderId];
+            if (pending && pending.length > 0) {
+              for (const cand of pending) {
+                try {
+                  await pc.addIceCandidate(new RTCIceCandidate(cand));
+                } catch (e) {
+                  console.warn("Error adding queued ICE candidate:", e);
+                }
+              }
+              pendingIceCandidatesRef.current[senderId] = [];
+            }
+
             const answer = await pc.createAnswer();
             await pc.setLocalDescription(answer);
             if (socket.readyState === WebSocket.OPEN) {
@@ -442,32 +516,53 @@ function MeetingRoomContent() {
           }
         } else if (data.type === "webrtc_answer") {
           // Received WebRTC answer from a peer
-          const senderId = data.sender_id;
+          const senderId = String(data.sender_id);
           const pc = peerConnectionsRef.current[senderId];
           if (pc) {
             try {
               await pc.setRemoteDescription(new RTCSessionDescription(data.sdp));
+
+              // Flush pending ICE candidates for this peer
+              const pending = pendingIceCandidatesRef.current[senderId];
+              if (pending && pending.length > 0) {
+                for (const cand of pending) {
+                  try {
+                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                  } catch (e) {
+                    console.warn("Error adding queued ICE candidate:", e);
+                  }
+                }
+                pendingIceCandidatesRef.current[senderId] = [];
+              }
             } catch (e) {
               console.error("Failed setting remote answer:", e);
             }
           }
         } else if (data.type === "webrtc_ice") {
           // Received ICE candidate from a peer
-          const senderId = data.sender_id;
+          const senderId = String(data.sender_id);
           const pc = peerConnectionsRef.current[senderId];
-          if (pc && data.candidate) {
-            try {
-              await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
-            } catch (e) {
-              console.warn("Error adding ICE candidate:", e);
+          if (data.candidate) {
+            if (pc && pc.remoteDescription && pc.remoteDescription.type) {
+              try {
+                await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+              } catch (e) {
+                console.warn("Error adding ICE candidate directly:", e);
+              }
+            } else {
+              // Queue candidate until remote description is set
+              if (!pendingIceCandidatesRef.current[senderId]) {
+                pendingIceCandidatesRef.current[senderId] = [];
+              }
+              pendingIceCandidatesRef.current[senderId].push(data.candidate);
             }
           }
         } else if (data.type === "screen_share_status") {
           // Another participant started or stopped screen sharing
           if (data.isSharing) {
-            setRemoteScreenSharer(data.participant_id);
+            setRemoteScreenSharer(String(data.participant_id));
           } else {
-            if (remoteScreenSharer === data.participant_id) {
+            if (String(remoteScreenSharer) === String(data.participant_id)) {
               setRemoteScreenSharer(null);
             }
           }
@@ -487,7 +582,7 @@ function MeetingRoomContent() {
           // Status update (mic/camera/hand/speaking)
           const updated = data.participant;
           setParticipants((prev) =>
-            prev.map((p) => (p.id === updated.id ? { ...p, ...updated } : p))
+            prev.map((p) => (String(p.id) === String(updated.id) ? { ...p, ...updated } : p))
           );
         } else if (data.type === "host_muted_all") {
           // Host muted everyone
@@ -518,6 +613,7 @@ function MeetingRoomContent() {
         pc.close();
       }
       peerConnectionsRef.current = {};
+      pendingIceCandidatesRef.current = {};
     };
   }, [hasJoined, displayName, roomId, participantId, success, error, router, remoteScreenSharer]);
 
@@ -604,47 +700,35 @@ function MeetingRoomContent() {
   // Screen share handler
   const handleToggleShare = async () => {
     if (isSharing) {
-      // Revert WebRTC tracks back to camera
-      const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
-      for (const pc of Object.values(peerConnectionsRef.current)) {
-        const senders = pc.getSenders();
-        const videoSender = senders.find((s) => s.track?.kind === "video");
-        if (videoSender && cameraTrack) {
-          videoSender.replaceTrack(cameraTrack);
-        }
-      }
-
-      if (screenStream) {
-        screenStream.getTracks().forEach((t) => t.stop());
-        setScreenStream(null);
-      }
-      setIsSharing(false);
-
-      if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-        wsRef.current.send(
-          JSON.stringify({
-            type: "screen_share_status",
-            isSharing: false,
-          })
-        );
-      }
+      handleStopSharing();
     } else {
       try {
         if (typeof navigator !== "undefined" && navigator.mediaDevices?.getDisplayMedia) {
           const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
           const screenTrack = stream.getVideoTracks()[0];
+          if (!screenTrack) return;
 
-          // Replace WebRTC track on all peer connections with the screen track!
+          screenStreamRef.current = stream;
+          setScreenStream(stream);
+          setIsSharing(true);
+
+          // Replace WebRTC video track on all active peer connections
           for (const pc of Object.values(peerConnectionsRef.current)) {
-            const senders = pc.getSenders();
-            const videoSender = senders.find((s) => s.track?.kind === "video");
-            if (videoSender && screenTrack) {
-              videoSender.replaceTrack(screenTrack);
+            const transceivers = pc.getTransceivers();
+            const videoTransceiver = transceivers.find((t) => t.receiver.track.kind === "video");
+            if (videoTransceiver) {
+              await videoTransceiver.sender.replaceTrack(screenTrack).catch((e) => console.warn(e));
+            } else {
+              const senders = pc.getSenders();
+              const videoSender = senders.find((s) => s.track?.kind === "video");
+              if (videoSender) {
+                await videoSender.replaceTrack(screenTrack).catch((e) => console.warn(e));
+              } else {
+                try { pc.addTrack(screenTrack, stream); } catch (_) {}
+              }
             }
           }
 
-          setScreenStream(stream);
-          setIsSharing(true);
           success("Screen sharing started");
 
           if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -666,20 +750,28 @@ function MeetingRoomContent() {
     }
   };
 
-  const handleStopSharing = () => {
-    const cameraTrack = localStreamRef.current?.getVideoTracks()[0];
+  const handleStopSharing = async () => {
+    const cameraTrack = localStreamRef.current?.getVideoTracks()[0] || null;
+
     for (const pc of Object.values(peerConnectionsRef.current)) {
-      const senders = pc.getSenders();
-      const videoSender = senders.find((s) => s.track?.kind === "video");
-      if (videoSender && cameraTrack) {
-        videoSender.replaceTrack(cameraTrack);
+      const transceivers = pc.getTransceivers();
+      const videoTransceiver = transceivers.find((t) => t.receiver.track.kind === "video");
+      if (videoTransceiver) {
+        await videoTransceiver.sender.replaceTrack(cameraTrack).catch((e) => console.warn(e));
+      } else {
+        const senders = pc.getSenders();
+        const videoSender = senders.find((s) => s.track?.kind === "video");
+        if (videoSender) {
+          await videoSender.replaceTrack(cameraTrack).catch((e) => console.warn(e));
+        }
       }
     }
 
     if (screenStreamRef.current) {
       screenStreamRef.current.getTracks().forEach((t) => t.stop());
-      setScreenStream(null);
+      screenStreamRef.current = null;
     }
+    setScreenStream(null);
     setIsSharing(false);
 
     if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
@@ -911,18 +1003,19 @@ function MeetingRoomContent() {
             }`}
           >
             {participants.map((p) => {
-              const isLocal = p.id === participantId;
+              const pidStr = String(p.id);
+              const isLocal = pidStr === String(participantId);
               const streamToUse = isLocal
                 ? isSharing
                   ? screenStream || localStream
                   : localStream
-                : remoteStreams[p.id] || null;
+                : remoteStreams[pidStr] || null;
 
-              const isThisTileSharing = isLocal ? isSharing : remoteScreenSharer === p.id;
+              const isThisTileSharing = isLocal ? isSharing : String(remoteScreenSharer) === pidStr;
 
               return (
                 <VideoTile
-                  key={p.id}
+                  key={pidStr}
                   participant={p}
                   isLocal={isLocal}
                   isScreenSharing={isThisTileSharing}

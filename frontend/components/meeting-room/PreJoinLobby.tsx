@@ -93,7 +93,7 @@ export function PreJoinLobby({
       setErrorMsg("Please enter your name before joining");
       return;
     }
-    onJoin(trimmed, isMuted, isVideoOff, localStream);
+    onJoin(trimmed, isMuted, isVideoOff, localStream || streamRef.current);
   };
 
   return (

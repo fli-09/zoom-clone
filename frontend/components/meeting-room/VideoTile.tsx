@@ -21,12 +21,17 @@ export function VideoTile({
   mediaStream = null,
   className,
 }: VideoTileProps) {
+  const videoElementRef = React.useRef<HTMLVideoElement | null>(null);
+
   // Callback ref guarantees srcObject is attached whenever the <video> element mounts or remounts
   const setVideoRef = React.useCallback(
     (node: HTMLVideoElement | null) => {
+      videoElementRef.current = node;
       if (node) {
         if (mediaStream) {
-          node.srcObject = mediaStream;
+          if (node.srcObject !== mediaStream) {
+            node.srcObject = mediaStream;
+          }
           node.play().catch(() => {});
         } else {
           node.srcObject = null;
@@ -35,6 +40,16 @@ export function VideoTile({
     },
     [mediaStream]
   );
+
+  // Sync mediaStream dynamically whenever stream or track changes
+  React.useEffect(() => {
+    if (videoElementRef.current && mediaStream) {
+      if (videoElementRef.current.srcObject !== mediaStream) {
+        videoElementRef.current.srcObject = mediaStream;
+      }
+      videoElementRef.current.play().catch(() => {});
+    }
+  }, [mediaStream, isScreenSharing, participant.isVideoOff]);
 
   return (
     <div
@@ -47,8 +62,49 @@ export function VideoTile({
         className
       )}
     >
-      {/* Participant Video / Avatar Display */}
-      {participant.isVideoOff || !mediaStream ? (
+      {/* Remote Audio Track Player - ALWAYS active and uninterrupted regardless of video toggles */}
+      {!isLocal && mediaStream && (
+        <audio
+          ref={(audioNode) => {
+            if (audioNode) {
+              if (audioNode.srcObject !== mediaStream) {
+                audioNode.srcObject = mediaStream;
+              }
+              audioNode.play().catch((err) => {
+                console.warn("Remote audio autoplay waiting for user gesture:", err);
+              });
+            }
+          }}
+          autoPlay
+          playsInline
+        />
+      )}
+
+      {/* Participant Video / Screen Share / Avatar Display */}
+      {isScreenSharing && mediaStream ? (
+        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+          <video
+            ref={setVideoRef}
+            autoPlay
+            playsInline
+            muted={isLocal}
+            className="w-full h-full object-contain bg-black"
+          />
+        </div>
+      ) : !participant.isVideoOff && (mediaStream || isLocal) ? (
+        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+          <video
+            ref={setVideoRef}
+            autoPlay
+            playsInline
+            muted={isLocal}
+            className={cn(
+              "w-full h-full object-cover",
+              isLocal && "scale-x-[-1]"
+            )}
+          />
+        </div>
+      ) : (
         <div className="flex flex-col items-center justify-center gap-3">
           <Avatar
             name={participant.name}
@@ -58,19 +114,6 @@ export function VideoTile({
           <span className="text-xs text-slate-400 font-medium">
             {participant.name}
           </span>
-        </div>
-      ) : (
-        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
-          <video
-            ref={setVideoRef}
-            autoPlay
-            playsInline
-            muted={isLocal}
-            className={cn(
-              "w-full h-full object-cover",
-              isLocal && !isScreenSharing && "scale-x-[-1]"
-            )}
-          />
         </div>
       )}
 
@@ -82,6 +125,11 @@ export function VideoTile({
       {/* Top Indicators: Hand Raised & Pin */}
       <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
         <div className="flex items-center gap-2">
+          {isScreenSharing && (
+            <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/90 text-slate-950 font-bold text-[11px] shadow-lg">
+              <span>Screen Sharing</span>
+            </div>
+          )}
           {participant.isHandRaised && (
             <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/90 text-slate-950 font-bold text-[11px] shadow-lg animate-bounce">
               <Hand className="w-3.5 h-3.5 fill-current" />
