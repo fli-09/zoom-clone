@@ -49,7 +49,7 @@ export function MeetingCard({
   return (
     <div
       className={cn(
-        "group relative flex flex-col justify-between p-5 rounded-2xl border border-dark-border bg-dark-surface hover:bg-dark-card hover:border-slate-700 transition-all duration-200 shadow-card",
+        "group relative flex flex-col justify-between p-5 rounded-2xl border border-dark-border bg-dark-surface hover:bg-dark-card hover:border-slate-700 transition-all duration-200 shadow-card min-h-[192px]",
         isLive && "border-brand/40 shadow-glow",
         className
       )}

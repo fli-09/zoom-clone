@@ -32,12 +32,21 @@ export function RecentMeetings({ meetings, isLoading = false }: RecentMeetingsPr
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
+      <div className="divide-y divide-dark-border/60 rounded-2xl border border-dark-border bg-dark-surface overflow-hidden">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="h-16 rounded-xl bg-dark-surface/60 border border-dark-border animate-pulse"
-          />
+            className="h-[68px] p-4 flex items-center justify-between animate-pulse"
+          >
+            <div className="flex items-center gap-3.5 w-1/2">
+              <div className="w-9 h-9 rounded-xl bg-white/5 shrink-0" />
+              <div className="space-y-1.5 w-full">
+                <div className="h-3 w-3/4 bg-white/5 rounded" />
+                <div className="h-2.5 w-1/2 bg-white/5 rounded" />
+              </div>
+            </div>
+            <div className="h-7 w-20 bg-white/5 rounded-lg" />
+          </div>
         ))}
       </div>
     );

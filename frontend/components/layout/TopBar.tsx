@@ -40,25 +40,33 @@ export function TopBar({ onSearch, title = "Meetings Dashboard" }: TopBarProps) 
         <h1 className="text-base font-semibold text-white tracking-tight hidden sm:block">
           {title}
         </h1>
-        {isBackendHealthy !== null && (
-          <div
-            className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-dark-card border border-dark-border text-[11px] font-medium text-slate-400"
-            title={
-              isBackendHealthy
-                ? "Backend connected and healthy"
-                : "Backend connecting or unreachable"
-            }
-          >
-            <span
-              className={`w-2 h-2 rounded-full ${
-                isBackendHealthy ? "bg-emerald-500 shadow-xs shadow-emerald-500/50" : "bg-rose-500"
-              }`}
-            />
-            <span className="hidden md:inline">
-              {isBackendHealthy ? "Live Cloud Sync" : "Connecting..."}
-            </span>
-          </div>
-        )}
+        <div
+          className="flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-dark-card border border-dark-border text-[11px] font-medium text-slate-400 min-w-[105px] h-6 transition-all duration-200"
+          title={
+            isBackendHealthy === null
+              ? "Connecting to backend..."
+              : isBackendHealthy
+              ? "Backend connected and healthy"
+              : "Backend connecting or unreachable"
+          }
+        >
+          <span
+            className={`w-2 h-2 rounded-full shrink-0 ${
+              isBackendHealthy === null
+                ? "bg-amber-400 animate-pulse"
+                : isBackendHealthy
+                ? "bg-emerald-500 shadow-xs shadow-emerald-500/50"
+                : "bg-rose-500"
+            }`}
+          />
+          <span className="hidden md:inline truncate">
+            {isBackendHealthy === null
+              ? "Connecting..."
+              : isBackendHealthy
+              ? "Live Cloud Sync"
+              : "Offline"}
+          </span>
+        </div>
       </div>
 
       {/* Global Search Bar */}

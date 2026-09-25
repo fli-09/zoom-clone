@@ -20,7 +20,7 @@ export function NextMeeting({ meeting, onScheduleClick }: NextMeetingProps) {
 
   if (!meeting) {
     return (
-      <div className="rounded-2xl border border-dark-border bg-gradient-to-br from-dark-surface to-dark-card p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-card">
+      <div className="rounded-2xl border border-dark-border bg-gradient-to-br from-dark-surface to-dark-card p-6 md:p-8 flex flex-col sm:flex-row items-center justify-between gap-6 shadow-card min-h-[176px]">
         <div className="flex items-center gap-4">
           <div className="w-12 h-12 rounded-2xl bg-brand/10 border border-brand/20 flex items-center justify-center text-brand-hover shrink-0">
             <Calendar className="w-6 h-6" />
@@ -56,7 +56,7 @@ export function NextMeeting({ meeting, onScheduleClick }: NextMeetingProps) {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-brand/25 bg-gradient-to-br from-dark-surface via-dark-card to-dark-surface p-6 sm:p-8 shadow-glow">
+    <div className="relative overflow-hidden rounded-2xl border border-brand/25 bg-gradient-to-br from-dark-surface via-dark-card to-dark-surface p-6 sm:p-8 shadow-glow min-h-[176px]">
       {/* Decorative ambient background glow */}
       <div className="absolute -right-16 -top-16 w-56 h-56 bg-brand/10 rounded-full blur-3xl pointer-events-none" />
 
