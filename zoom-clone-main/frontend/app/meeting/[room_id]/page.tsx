@@ -404,35 +404,41 @@ function MeetingRoomContent() {
           // Initial participants list received from server
           setParticipants(data.participants);
 
-          // For every other participant already in the room, initiate a WebRTC connection
+          // Pre-create PeerConnections for every existing participant.
+          // We do NOT send offers here — existing participants will send us offers
+          // via their "participant_joined" handler. This avoids SDP glare and
+          // ensures each existing member's tracks are in THEIR offer (which they control).
           for (const p of data.participants) {
             if (p.id !== participantId) {
-              const pc = getOrCreatePeerConnection(p.id);
-              try {
-                const offer = await pc.createOffer();
-                await pc.setLocalDescription(offer);
-                if (socket.readyState === WebSocket.OPEN) {
-                  socket.send(
-                    JSON.stringify({
-                      type: "webrtc_offer",
-                      target_id: p.id,
-                      sdp: offer,
-                    })
-                  );
-                }
-              } catch (e) {
-                console.error("Failed to create WebRTC offer:", e);
-              }
+              getOrCreatePeerConnection(p.id);
             }
           }
         } else if (data.type === "participant_joined") {
-          // Another participant entered the room
+          // Another participant entered the room — we are an existing member
           const newP: MeetingParticipant = data.participant;
           setParticipants((prev) => {
             if (prev.some((p) => p.id === newP.id)) return prev;
             return [...prev, newP];
           });
-          getOrCreatePeerConnection(newP.id);
+
+          // As the existing participant, WE send an offer to the newcomer.
+          // This guarantees our local tracks are included in the offer SDP.
+          const pc = getOrCreatePeerConnection(newP.id);
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            if (socket.readyState === WebSocket.OPEN) {
+              socket.send(
+                JSON.stringify({
+                  type: "webrtc_offer",
+                  target_id: newP.id,
+                  sdp: offer,
+                })
+              );
+            }
+          } catch (e) {
+            console.error("Failed to send offer to new participant:", e);
+          }
           success(`${newP.name} joined the meeting`);
         } else if (data.type === "participant_left") {
           // A participant disconnected
@@ -535,9 +541,9 @@ function MeetingRoomContent() {
           if (data.isSharing) {
             setRemoteScreenSharer(String(data.participant_id));
           } else {
-            if (String(remoteScreenSharer) === String(data.participant_id)) {
-              setRemoteScreenSharer(null);
-            }
+            setRemoteScreenSharer((prev) =>
+              String(prev) === String(data.participant_id) ? null : prev
+            );
           }
         } else if (data.type === "chat") {
           // Chat message received from someone in the room
@@ -588,7 +594,8 @@ function MeetingRoomContent() {
       peerConnectionsRef.current = {};
       pendingIceCandidatesRef.current = {};
     };
-  }, [hasJoined, displayName, roomId, participantId, success, error, router, remoteScreenSharer]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasJoined, displayName, roomId, participantId]);
 
   // Keep local participant in the participants list synced with local states
   useEffect(() => {
