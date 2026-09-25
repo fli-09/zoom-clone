@@ -1,8 +1,7 @@
-fastapi==0.141.1
-uvicorn[standard]==0.54.0
-sqlalchemy==2.1.0
-pydantic==2.13.5
-python-multipart==0.0.32
-python-dotenv==1.2.3
-psycopg[binary]>=3.1.0
-psycopg2-binary==2.9.13
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+python-multipart
+python-dotenv
+psycopg2-binary
