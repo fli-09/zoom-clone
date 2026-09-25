@@ -5,7 +5,7 @@ export interface AvatarProps extends React.HTMLAttributes<HTMLDivElement> {
   name?: string | null;
   src?: string | null;
   size?: "xs" | "sm" | "md" | "lg" | "xl";
-  status?: "online" | "busy" | "offline";
+  status?: "online" | "busy" | "offline" | "away";
 }
 
 const BG_COLORS = [
@@ -62,6 +62,7 @@ export function Avatar({
   const statusColor = {
     online: "bg-emerald-500",
     busy: "bg-rose-500",
+    away: "bg-amber-500",
     offline: "bg-slate-500",
   };
 

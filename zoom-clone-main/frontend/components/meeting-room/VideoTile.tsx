@@ -14,6 +14,19 @@ export interface VideoTileProps {
   className?: string;
 }
 
+/**
+ * VideoTile Component
+ * ====================
+ * Renders individual participant video frames matching Zoom's video presentation engine:
+ * 1. Permanent Video Element: The <video> element remains permanently attached in the DOM to avoid
+ *    re-mounting overhead or black-screen flickers when participants toggle camera on/off.
+ * 2. Autoplay Compliance: Set `muted={true}` on the video element so mobile/desktop browsers permit
+ *    immediate autoplay without user interaction blocks.
+ * 3. Dedicated Audio Sink: Remote audio tracks are routed through a separate <audio> element to prevent
+ *    local acoustic feedback while ensuring crystal-clear remote participant audio.
+ * 4. Dynamic Overlays: High-fidelity letterboxed avatars display automatically when video is muted or
+ *    temporarily unavailable.
+ */
 export function VideoTile({
   participant,
   isLocal = false,

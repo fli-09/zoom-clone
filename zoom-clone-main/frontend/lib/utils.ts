@@ -9,56 +9,124 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /**
- * Formats an ISO date string into readable date and time.
- * e.g., "Today at 3:30 PM", "Tomorrow at 10:00 AM", or "Oct 24, 2026 at 2:00 PM"
+ * Formats an ISO date string into readable date, time, and human-friendly relative status.
+ *
+ * @param dateString - ISO 8601 string or valid Date string
+ * @param durationMinutes - Scheduled meeting duration in minutes (defaults to 30)
+ * @returns Object with date, time, relative text, live status, and upcoming/past flags
  */
-export function formatMeetingDate(dateString?: string | null): {
+export function formatMeetingDate(
+  dateString?: string | null,
+  durationMinutes?: number | null
+): {
   date: string;
   time: string;
   relative: string;
+  isLive: boolean;
+  isUpcoming: boolean;
+  isPast: boolean;
+  statusBadgeText: string;
 } {
   if (!dateString) {
-    return { date: "TBD", time: "TBD", relative: "Scheduled" };
+    return {
+      date: "TBD",
+      time: "TBD",
+      relative: "Scheduled",
+      isLive: false,
+      isUpcoming: false,
+      isPast: false,
+      statusBadgeText: "Scheduled",
+    };
   }
 
   const date = new Date(dateString);
   if (isNaN(date.getTime())) {
-    return { date: "TBD", time: "TBD", relative: "Scheduled" };
+    return {
+      date: "TBD",
+      time: "TBD",
+      relative: "Scheduled",
+      isLive: false,
+      isUpcoming: false,
+      isPast: false,
+      statusBadgeText: "Scheduled",
+    };
   }
 
   const now = new Date();
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-  const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
-  const diffDays = Math.round(
-    (targetDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
-  );
+  const startTime = date.getTime();
+  const durationMs = (durationMinutes || 30) * 60 * 1000;
+  const endTime = startTime + durationMs;
+  const nowMs = now.getTime();
 
-  let relative = "";
-  if (diffDays === 0) {
-    relative = "Today";
-  } else if (diffDays === 1) {
-    relative = "Tomorrow";
-  } else if (diffDays === -1) {
-    relative = "Yesterday";
-  } else if (diffDays > 1 && diffDays < 7) {
-    relative = date.toLocaleDateString("en-US", { weekday: "short" });
-  } else {
-    relative = date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
-  }
+  // Determine temporal relationship
+  const isLive = nowMs >= startTime && nowMs <= endTime;
+  const isUpcoming = startTime > nowMs;
+  const isPast = nowMs > endTime;
 
-  const time = date.toLocaleTimeString("en-US", {
+  // Formatting strings
+  const time = date.toLocaleTimeString([], {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
   });
 
-  const fullDate = date.toLocaleDateString("en-US", {
+  const fullDate = date.toLocaleDateString([], {
+    weekday: "short",
     month: "short",
     day: "numeric",
     year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
   });
 
-  return { date: fullDate, time, relative };
+  const diffMs = startTime - nowMs;
+  const diffMinutes = Math.round(diffMs / (1000 * 60));
+
+  let relative = "";
+  let statusBadgeText = "";
+
+  if (isLive) {
+    relative = "Happening Now";
+    statusBadgeText = "LIVE NOW";
+  } else if (isUpcoming && diffMinutes <= 60 && diffMinutes > 0) {
+    relative = `Starts in ${diffMinutes} min${diffMinutes === 1 ? "" : "s"}`;
+    statusBadgeText = `In ${diffMinutes}m`;
+  } else {
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const targetDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const diffDays = Math.round(
+      (targetDay.getTime() - today.getTime()) / (1000 * 60 * 60 * 24)
+    );
+
+    if (diffDays === 0) {
+      relative = `Today at ${time}`;
+      statusBadgeText = isUpcoming ? "Today" : "Completed Today";
+    } else if (diffDays === 1) {
+      relative = `Tomorrow at ${time}`;
+      statusBadgeText = "Tomorrow";
+    } else if (diffDays === -1) {
+      relative = `Yesterday at ${time}`;
+      statusBadgeText = "Past Due";
+    } else if (diffDays > 1 && diffDays < 7) {
+      const weekday = date.toLocaleDateString([], { weekday: "short" });
+      relative = `${weekday} at ${time}`;
+      statusBadgeText = weekday;
+    } else if (diffDays < -1) {
+      relative = `${fullDate} at ${time}`;
+      statusBadgeText = "Past Due";
+    } else {
+      relative = `${fullDate} at ${time}`;
+      statusBadgeText = date.toLocaleDateString([], { month: "short", day: "numeric" });
+    }
+  }
+
+  return {
+    date: fullDate,
+    time,
+    relative,
+    isLive,
+    isUpcoming,
+    isPast,
+    statusBadgeText,
+  };
 }
 
 /**

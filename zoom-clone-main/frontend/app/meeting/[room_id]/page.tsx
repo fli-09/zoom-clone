@@ -22,6 +22,23 @@ import { MeetingParticipant, ChatMessage } from "@/lib/types";
 import { copyToClipboard } from "@/lib/utils";
 import { getWebSocketUrl, saveMeetingRecording } from "@/lib/api";
 
+/**
+ * Zoom Clone - WebRTC Full Mesh Meeting Room
+ * ===========================================
+ * Architecture & Streaming Pipeline:
+ * 1. WebRTC Mesh Topology: Each client establishes an RTCPeerConnection with every remote participant.
+ *    - Existing participants initiate proactive offers to incoming joiners ("participant_joined").
+ *    - Transceivers are initialized with "sendrecv" direction to guarantee bidirectional media exchange.
+ * 2. Permanent Video Pipeline: <video> DOM elements stay permanently mounted with muted={true} for browser
+ *    autoplay security compliance, preventing black screens and playback pauses on track changes.
+ * 3. Track Accumulation & In-Order ICE: `pc.ontrack` accumulates audio and video tracks onto a persistent
+ *    MediaStream reference per participant, ensuring late-arriving tracks are not dropped.
+ * 4. Screen Sharing & Hot-Swapping: Screen shares dynamically swap video tracks via RTCRtpSender.replaceTrack()
+ *    without renegotiating ICE or tearing down peer connections.
+ * 5. Audio Analyser: Web Audio API AnalyserNode monitors audio stream volume in real-time to render
+ *    Zoom's active green speaker border indicator.
+ */
+
 const RTC_CONFIG: RTCConfiguration = {
   iceServers: [
     { urls: "stun:stun.l.google.com:19302" },
@@ -43,6 +60,7 @@ function MeetingRoomContent() {
   const queryName = searchParams?.get("name");
   const queryMuted = searchParams?.get("muted") === "1";
   const queryVideoOff = searchParams?.get("videoOff") === "1";
+  const queryScreenShare = searchParams?.get("screenShare") === "1";
 
   // Pre-join status: every user verifies name and previews camera/mic in PreJoinLobby
   const [hasJoined, setHasJoined] = useState<boolean>(false);
@@ -783,6 +801,16 @@ function MeetingRoomContent() {
       );
     }
   };
+
+  // Auto-prompt screen share if user joined via the "Share Screen" quick action
+  useEffect(() => {
+    if (hasJoined && queryScreenShare && !isSharing) {
+      const timer = setTimeout(() => {
+        handleToggleShare();
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [hasJoined, queryScreenShare]);
 
   // Host Controls: Mute All
   const handleMuteAll = () => {

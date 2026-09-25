@@ -1,3 +1,15 @@
+"""
+Zoom Clone - WebRTC Signaling & Real-Time Sync WebSocket Router
+==============================================================
+Manages real-time room sessions:
+1. WebRTC Signaling Relay: Relays SDP offers, answers, and ICE candidate events
+   directly between peer connections via client IDs.
+2. Room State Synchronization: Broadcasts participant join/leave events, media status changes,
+   hand-raising, active speaker detection, and chat messages.
+3. Host Control Enforcement: Broadcasts administrative actions such as 'mute_all'
+   and 'remove_participant' to maintain room order.
+"""
+
 import json
 import logging
 from typing import Dict, Any
@@ -9,6 +21,9 @@ router = APIRouter(tags=["websocket"])
 
 
 class RoomConnectionManager:
+    """
+    In-memory state and socket connection registry for active video conference rooms.
+    """
     def __init__(self):
         # room_id -> { participant_id: {"ws": WebSocket, "data": dict} }
         self.rooms: Dict[str, Dict[str, Dict[str, Any]]] = {}

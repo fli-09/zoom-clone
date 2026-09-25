@@ -17,30 +17,31 @@ import {
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/ui/Avatar";
 
-const NAV_ITEMS = [
-  { label: "Home", href: "/", icon: Home },
-  { label: "Meetings", href: "/#upcoming", icon: Clock },
-  { label: "Calendar", href: "/#calendar", icon: CalendarDays },
-  { label: "Recordings", href: "/#recordings", icon: Film },
-  { label: "Contacts", href: "/#contacts", icon: Users },
-];
-
-const SECONDARY_ITEMS = [
-  { label: "Settings", href: "/#settings", icon: Settings },
-  {
-    label: "Help & Docs",
-    href: "https://zoom-clone-backend-uot2.onrender.com/docs",
-    icon: HelpCircle,
-    external: true,
-  },
-];
+export interface SidebarProps {
+  onOpenCalendar?: () => void;
+  onOpenRecordings?: () => void;
+  onOpenContacts?: () => void;
+  onOpenSettings?: () => void;
+}
 
 /**
  * Sidebar Component (Desktop App Shell)
- * Provides 240px wide SaaS navigation with logo, navigation links, and user profile drawer.
+ * Provides 240px wide SaaS navigation with interactive Calendar, Recordings, Contacts, and Settings drawers.
  */
-export function Sidebar() {
+export function Sidebar({
+  onOpenCalendar,
+  onOpenRecordings,
+  onOpenContacts,
+  onOpenSettings,
+}: SidebarProps) {
   const pathname = usePathname();
+
+  const handleNavClick = (e: React.MouseEvent, action?: () => void) => {
+    if (action) {
+      e.preventDefault();
+      action();
+    }
+  };
 
   return (
     <aside className="hidden md:flex flex-col w-60 lg:w-64 h-screen bg-dark-surface border-r border-dark-border select-none shrink-0 sticky top-0 z-30">
@@ -70,70 +71,111 @@ export function Sidebar() {
           Navigation
         </div>
 
-        {NAV_ITEMS.map((item) => {
-          const isActive = pathname === item.href || (item.href === "/" && pathname === "/");
-          const Icon = item.icon;
+        {/* Home */}
+        <Link
+          href="/"
+          className={cn(
+            "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 group",
+            pathname === "/"
+              ? "bg-brand/12 text-white border border-brand/20 shadow-xs"
+              : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
+          )}
+        >
+          <Home
+            className={cn(
+              "w-4 h-4 transition-colors",
+              pathname === "/"
+                ? "text-brand-hover"
+                : "text-slate-400 group-hover:text-slate-200"
+            )}
+          />
+          <span>Home</span>
+        </Link>
 
-          return (
-            <Link
-              key={item.label}
-              href={item.href}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-all duration-150 group",
-                isActive
-                  ? "bg-brand/12 text-white border border-brand/20 shadow-xs"
-                  : "text-slate-400 hover:text-slate-200 hover:bg-white/5"
-              )}
-            >
-              <Icon
-                className={cn(
-                  "w-4 h-4 transition-colors",
-                  isActive
-                    ? "text-brand-hover"
-                    : "text-slate-400 group-hover:text-slate-200"
-                )}
-              />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+        {/* Meetings */}
+        <Link
+          href="/#upcoming"
+          className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all duration-150 group"
+        >
+          <Clock className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />
+          <span>Meetings</span>
+        </Link>
+
+        {/* Calendar (Interactive Modal) */}
+        <button
+          onClick={(e) => handleNavClick(e, onOpenCalendar)}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all duration-150 group text-left"
+        >
+          <div className="flex items-center gap-3">
+            <CalendarDays className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />
+            <span>Calendar</span>
+          </div>
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-dark-bg border border-dark-border text-slate-400">
+            View
+          </span>
+        </button>
+
+        {/* Recordings (Interactive Modal) */}
+        <button
+          onClick={(e) => handleNavClick(e, onOpenRecordings)}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all duration-150 group text-left"
+        >
+          <div className="flex items-center gap-3">
+            <Film className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />
+            <span>Recordings</span>
+          </div>
+          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded bg-dark-bg border border-dark-border text-slate-400">
+            Cloud
+          </span>
+        </button>
+
+        {/* Contacts (Interactive Modal) */}
+        <button
+          onClick={(e) => handleNavClick(e, onOpenContacts)}
+          className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all duration-150 group text-left"
+        >
+          <div className="flex items-center gap-3">
+            <Users className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />
+            <span>Contacts</span>
+          </div>
+          <span className="w-2 h-2 rounded-full bg-emerald-400" />
+        </button>
 
         <div className="pt-6 px-3 pb-2 text-[11px] font-semibold uppercase tracking-wider text-slate-500">
           Support & Tools
         </div>
 
-        {SECONDARY_ITEMS.map((item) => {
-          const Icon = item.icon;
-          return item.external ? (
-            <a
-              key={item.label}
-              href={item.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all duration-150 group"
-            >
-              <div className="flex items-center gap-3">
-                <Icon className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />
-                <span>{item.label}</span>
-              </div>
-              <ExternalLink className="w-3 h-3 text-slate-500 opacity-60 group-hover:opacity-100" />
-            </a>
-          ) : (
-            <Link
-              key={item.label}
-              href={item.href}
-              className="flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all duration-150 group"
-            >
-              <Icon className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />
-              <span>{item.label}</span>
-            </Link>
-          );
-        })}
+        {/* Settings (Interactive Modal) */}
+        <button
+          onClick={(e) => handleNavClick(e, onOpenSettings)}
+          className="w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all duration-150 group text-left"
+        >
+          <Settings className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />
+          <span>Settings</span>
+        </button>
+
+        {/* Help & Swagger Documentation */}
+        <a
+          href="https://zoom-clone-backend-uot2.onrender.com/docs"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-between px-3 py-2 rounded-xl text-xs font-medium text-slate-400 hover:text-slate-200 hover:bg-white/5 transition-all duration-150 group"
+        >
+          <div className="flex items-center gap-3">
+            <HelpCircle className="w-4 h-4 text-slate-400 group-hover:text-slate-200" />
+            <span>API Docs</span>
+          </div>
+          <ExternalLink className="w-3 h-3 text-slate-500 opacity-60 group-hover:opacity-100" />
+        </a>
       </nav>
 
-      {/* User Profile Footer */}
+      {/* User Profile Footer (Clickable to open Settings) */}
       <div className="p-3 border-t border-dark-border bg-dark-bg/40">
-        <div className="flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group">
+        <button
+          onClick={onOpenSettings}
+          className="w-full flex items-center gap-3 p-2 rounded-xl hover:bg-white/5 transition-colors cursor-pointer group text-left"
+          title="Open Settings"
+        >
           <Avatar
             name="Default User"
             size="sm"
@@ -148,7 +190,8 @@ export function Sidebar() {
               user@example.com
             </p>
           </div>
-        </div>
+          <Settings className="w-3.5 h-3.5 text-slate-500 group-hover:text-slate-300 transition-colors" />
+        </button>
       </div>
     </aside>
   );

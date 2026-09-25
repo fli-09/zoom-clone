@@ -1,18 +1,24 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
 import { getMeetingByRoomId } from "@/lib/api";
+import { ScreenShare } from "lucide-react";
 
 export interface JoinMeetingModalProps {
   isOpen: boolean;
   onClose: () => void;
+  defaultScreenShare?: boolean;
 }
 
-export function JoinMeetingModal({ isOpen, onClose }: JoinMeetingModalProps) {
+export function JoinMeetingModal({
+  isOpen,
+  onClose,
+  defaultScreenShare = false,
+}: JoinMeetingModalProps) {
   const router = useRouter();
   const { error } = useToast();
 
@@ -20,8 +26,13 @@ export function JoinMeetingModal({ isOpen, onClose }: JoinMeetingModalProps) {
   const [userName, setUserName] = useState("");
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isShareScreen, setIsShareScreen] = useState(defaultScreenShare);
   const [isChecking, setIsChecking] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsShareScreen(defaultScreenShare);
+  }, [defaultScreenShare, isOpen]);
 
   const cleanRoomId = (raw: string): string => {
     let cleaned = raw.trim();
@@ -50,6 +61,7 @@ export function JoinMeetingModal({ isOpen, onClose }: JoinMeetingModalProps) {
       if (userName.trim()) params.set("name", userName.trim());
       if (isMuted) params.set("muted", "1");
       if (isVideoOff) params.set("videoOff", "1");
+      if (isShareScreen) params.set("screenShare", "1");
       const qs = params.toString() ? `?${params.toString()}` : "";
       router.push(`/meeting/${roomId}${qs}`);
     } catch (err: unknown) {
@@ -65,8 +77,21 @@ export function JoinMeetingModal({ isOpen, onClose }: JoinMeetingModalProps) {
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Join a Meeting"
-      description="Enter the meeting ID or personal link name provided by the host"
+      title={
+        defaultScreenShare ? (
+          <div className="flex items-center gap-2">
+            <ScreenShare className="w-5 h-5 text-emerald-400" />
+            <span>Share Screen in Meeting</span>
+          </div>
+        ) : (
+          "Join a Meeting"
+        )
+      }
+      description={
+        defaultScreenShare
+          ? "Enter the meeting ID or invite link to join and broadcast your screen immediately"
+          : "Enter the meeting ID or personal link name provided by the host"
+      }
       maxWidth="md"
     >
       <form onSubmit={handleJoin} className="space-y-4">
@@ -118,6 +143,18 @@ export function JoinMeetingModal({ isOpen, onClose }: JoinMeetingModalProps) {
             />
             <span>Turn off my video</span>
           </label>
+
+          <label className="flex items-center gap-2.5 text-xs text-slate-300 cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={isShareScreen}
+              onChange={(e) => setIsShareScreen(e.target.checked)}
+              className="rounded border-dark-border bg-dark-bg text-brand focus:ring-brand/40"
+            />
+            <span className="font-semibold text-slate-200">
+              Start with screen sharing enabled
+            </span>
+          </label>
         </div>
 
         {errorMsg && (
@@ -138,7 +175,7 @@ export function JoinMeetingModal({ isOpen, onClose }: JoinMeetingModalProps) {
             isLoading={isChecking}
             disabled={isChecking}
           >
-            {isChecking ? "Validating..." : "Join"}
+            {isChecking ? "Validating..." : defaultScreenShare ? "Share Screen" : "Join"}
           </Button>
         </div>
       </form>

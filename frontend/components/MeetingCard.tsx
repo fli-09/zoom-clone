@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Clock, Copy, Check, Video, ArrowRight } from "lucide-react";
+import { Clock, Copy, Check, Video, ArrowRight, Radio } from "lucide-react";
 import { MeetingResponse } from "@/lib/types";
 import { formatMeetingDate, formatDuration, copyToClipboard, cn } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
@@ -27,7 +27,10 @@ export function MeetingCard({
   const { success } = useToast();
   const [copied, setCopied] = useState(false);
 
-  const { date, time, relative } = formatMeetingDate(meeting.start_time);
+  const { date, time, relative, isLive: calculatedIsLive, statusBadgeText } = formatMeetingDate(
+    meeting.start_time,
+    meeting.duration
+  );
   const durationText = formatDuration(meeting.duration);
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -44,7 +47,9 @@ export function MeetingCard({
   };
 
   const isLive =
-    meeting.status === "in_progress" || meeting.status === "IN_PROGRESS";
+    calculatedIsLive ||
+    meeting.status === "in_progress" ||
+    meeting.status === "IN_PROGRESS";
 
   return (
     <div
@@ -59,12 +64,13 @@ export function MeetingCard({
         <div className="flex items-center justify-between gap-2 mb-3">
           <div className="flex items-center gap-2">
             {isLive ? (
-              <Badge variant="danger" dot size="sm">
-                LIVE NOW
-              </Badge>
+              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30 animate-pulse">
+                <Radio className="w-3 h-3 text-rose-400" />
+                LIVE
+              </span>
             ) : variant === "upcoming" ? (
               <Badge variant="brand" dot size="sm">
-                {relative}
+                {statusBadgeText || relative}
               </Badge>
             ) : (
               <Badge variant="default" size="sm">
@@ -121,12 +127,12 @@ export function MeetingCard({
 
         <Link href={`/meeting/${meeting.room_id}`}>
           <Button
-            variant={variant === "upcoming" ? "primary" : "secondary"}
+            variant={isLive ? "destructive" : variant === "upcoming" ? "primary" : "secondary"}
             size="sm"
             className="gap-1.5"
           >
             <Video className="w-3.5 h-3.5" />
-            <span>{variant === "upcoming" ? "Start" : "Rejoin"}</span>
+            <span>{isLive ? "Join Now" : variant === "upcoming" ? "Start" : "Rejoin"}</span>
             <ArrowRight className="w-3 h-3 ml-0.5" />
           </Button>
         </Link>

@@ -14,6 +14,15 @@ export interface PreJoinLobbyProps {
   onJoin: (name: string, isMuted: boolean, isVideoOff: boolean, stream: MediaStream | null) => void;
 }
 
+/**
+ * PreJoinLobby Component
+ * =======================
+ * Pre-meeting green room experience matching Zoom desktop client:
+ * 1. Hardware Initialization: Requests audio/video device access and generates a local MediaStream.
+ * 2. Instant Feed Preview: Lets participants test audio levels, camera angle, and background lighting.
+ * 3. Preference Hand-Off: Passes the active MediaStream and audio/video mute states into the meeting room,
+ *    eliminating race conditions and preventing audio feedback loops upon joining.
+ */
 export function PreJoinLobby({
   roomId,
   initialName = "",

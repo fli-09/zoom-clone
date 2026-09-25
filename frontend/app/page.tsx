@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useEffect, useState, useCallback, useMemo } from "react";
 import {
   getUpcomingMeetings,
   getRecentMeetings,
@@ -19,8 +19,15 @@ import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { Calendar, Clock, RefreshCw, AlertCircle } from "lucide-react";
 
+/**
+ * DashboardPage Component
+ * Main landing view replicating the official Zoom Desktop App interface:
+ * - Real-time system clock and dynamic "Next Meeting" card
+ * - Zoom 4-tile Quick Actions (New Meeting, Join, Schedule, Share Screen)
+ * - Chronologically sorted Upcoming and Recent meeting feeds
+ * - Universal navigation modals (Calendar, Recordings, Contacts, Settings)
+ */
 export default function DashboardPage() {
-
   const [upcomingMeetings, setUpcomingMeetings] = useState<MeetingResponse[]>([]);
   const [recentMeetings, setRecentMeetings] = useState<MeetingResponse[]>([]);
   const [loading, setLoading] = useState(true);
@@ -29,11 +36,13 @@ export default function DashboardPage() {
   // Search filter
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Modals
+  // Modals state
   const [isNewModalOpen, setIsNewModalOpen] = useState(false);
   const [isJoinModalOpen, setIsJoinModalOpen] = useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
+  const [isShareScreenModal, setIsShareScreenModal] = useState(false);
 
+  // Load meetings from FastAPI backend
   const loadData = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
@@ -62,33 +71,69 @@ export default function DashboardPage() {
     loadData();
   }, [loadData]);
 
-  // Instant meeting trigger
+  // Instant meeting handler
   const handleInstantMeeting = () => {
     setIsNewModalOpen(true);
   };
 
-  // Filtered lists
+  // Filtered lists based on search query
   const query = searchQuery.toLowerCase().trim();
-  const filteredUpcoming = upcomingMeetings.filter(
-    (m) =>
-      m.title.toLowerCase().includes(query) ||
-      (m.description && m.description.toLowerCase().includes(query)) ||
-      m.room_id.toLowerCase().includes(query)
-  );
+  const filteredUpcoming = useMemo(() => {
+    return upcomingMeetings.filter(
+      (m) =>
+        m.title.toLowerCase().includes(query) ||
+        (m.description && m.description.toLowerCase().includes(query)) ||
+        m.room_id.toLowerCase().includes(query)
+    );
+  }, [upcomingMeetings, query]);
 
-  const filteredRecent = recentMeetings.filter(
-    (m) =>
-      m.title.toLowerCase().includes(query) ||
-      (m.description && m.description.toLowerCase().includes(query)) ||
-      m.room_id.toLowerCase().includes(query)
-  );
+  const filteredRecent = useMemo(() => {
+    return recentMeetings.filter(
+      (m) =>
+        m.title.toLowerCase().includes(query) ||
+        (m.description && m.description.toLowerCase().includes(query)) ||
+        m.room_id.toLowerCase().includes(query)
+    );
+  }, [recentMeetings, query]);
 
-  const nextMeeting = upcomingMeetings.length > 0 ? upcomingMeetings[0] : null;
+  // Intelligent "Next Meeting" calculation:
+  // Prioritize active (live) meetings first, then upcoming future meetings,
+  // preventing expired yesterday meetings from displaying as "Up Next".
+  const nextMeeting = useMemo(() => {
+    if (!upcomingMeetings.length) return null;
+    const nowMs = Date.now();
+
+    // 1. Look for a meeting happening right now
+    const liveMeeting = upcomingMeetings.find((m) => {
+      if (!m.start_time) return false;
+      const startMs = new Date(m.start_time).getTime();
+      const endMs = startMs + (m.duration || 30) * 60 * 1000;
+      return nowMs >= startMs && nowMs <= endMs;
+    });
+    if (liveMeeting) return liveMeeting;
+
+    // 2. Look for the earliest meeting scheduled in the future
+    const futureMeetings = upcomingMeetings
+      .filter((m) => m.start_time && new Date(m.start_time).getTime() > nowMs)
+      .sort(
+        (a, b) =>
+          new Date(a.start_time!).getTime() - new Date(b.start_time!).getTime()
+      );
+    if (futureMeetings.length > 0) return futureMeetings[0];
+
+    // 3. Fallback to first scheduled meeting if all are past due
+    return upcomingMeetings[0];
+  }, [upcomingMeetings]);
 
   return (
-    <AppShell onSearch={(q) => setSearchQuery(q)}>
+    <AppShell
+      onSearch={(q) => setSearchQuery(q)}
+      meetings={upcomingMeetings}
+      recentMeetings={recentMeetings}
+      onScheduleClick={() => setIsScheduleModalOpen(true)}
+    >
       <div className="space-y-8 sm:space-y-10">
-        {/* Next Meeting Banner */}
+        {/* Next Meeting Banner with Live System Clock */}
         <section aria-label="Next Upcoming Meeting">
           {loading ? (
             <Skeleton className="h-44 w-full rounded-2xl" />
@@ -104,9 +149,15 @@ export default function DashboardPage() {
         <section aria-label="Quick Actions">
           <QuickActions
             onNewMeeting={handleInstantMeeting}
-            onJoinMeeting={() => setIsJoinModalOpen(true)}
+            onJoinMeeting={() => {
+              setIsShareScreenModal(false);
+              setIsJoinModalOpen(true);
+            }}
             onScheduleMeeting={() => setIsScheduleModalOpen(true)}
-            onShareScreen={() => setIsJoinModalOpen(true)}
+            onShareScreen={() => {
+              setIsShareScreenModal(true);
+              setIsJoinModalOpen(true);
+            }}
           />
         </section>
 
@@ -232,7 +283,11 @@ export default function DashboardPage() {
 
       <JoinMeetingModal
         isOpen={isJoinModalOpen}
-        onClose={() => setIsJoinModalOpen(false)}
+        onClose={() => {
+          setIsJoinModalOpen(false);
+          setIsShareScreenModal(false);
+        }}
+        defaultScreenShare={isShareScreenModal}
       />
 
       <ScheduleMeetingModal

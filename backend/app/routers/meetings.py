@@ -25,12 +25,12 @@ def get_meetings(db: Session = Depends(get_db)):
 @router.get("/upcoming", response_model=List[schemas.MeetingResponse])
 def get_upcoming_meetings(db: Session = Depends(get_db)):
     """
-    Retrieve scheduled upcoming meetings.
-    Ordered by start time ascending so the next upcoming meeting appears first.
+    Retrieve active and scheduled upcoming meetings.
+    Ordered by start time ascending so the next upcoming or live meeting appears first.
     """
     meetings = (
         db.query(models.Meeting)
-        .filter(models.Meeting.status.in_(["SCHEDULED", "scheduled"]))
+        .filter(models.Meeting.status.in_(["SCHEDULED", "scheduled", "in_progress", "IN_PROGRESS"]))
         .order_by(models.Meeting.start_time.asc().nullslast(), models.Meeting.created_at.desc())
         .all()
     )

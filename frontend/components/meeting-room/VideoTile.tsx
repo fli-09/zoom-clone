@@ -14,6 +14,19 @@ export interface VideoTileProps {
   className?: string;
 }
 
+/**
+ * VideoTile Component
+ * ====================
+ * Renders individual participant video frames matching Zoom's video presentation engine:
+ * 1. Permanent Video Element: The <video> element remains permanently attached in the DOM to avoid
+ *    re-mounting overhead or black-screen flickers when participants toggle camera on/off.
+ * 2. Autoplay Compliance: Set `muted={true}` on the video element so mobile/desktop browsers permit
+ *    immediate autoplay without user interaction blocks.
+ * 3. Dedicated Audio Sink: Remote audio tracks are routed through a separate <audio> element to prevent
+ *    local acoustic feedback while ensuring crystal-clear remote participant audio.
+ * 4. Dynamic Overlays: High-fidelity letterboxed avatars display automatically when video is muted or
+ *    temporarily unavailable.
+ */
 export function VideoTile({
   participant,
   isLocal = false,
@@ -22,34 +35,78 @@ export function VideoTile({
   className,
 }: VideoTileProps) {
   const videoElementRef = React.useRef<HTMLVideoElement | null>(null);
+  const audioElementRef = React.useRef<HTMLAudioElement | null>(null);
 
-  // Callback ref guarantees srcObject is attached whenever the <video> element mounts or remounts
+  // Check if video tracks exist and participant has not disabled video
+  const hasVideoTrack = Boolean(
+    !participant.isVideoOff &&
+    mediaStream &&
+    mediaStream.getVideoTracks().length > 0
+  );
+
+  // Callback ref for immediate video attachment on mount
   const setVideoRef = React.useCallback(
     (node: HTMLVideoElement | null) => {
       videoElementRef.current = node;
       if (node) {
-        if (mediaStream) {
+        if (mediaStream && (hasVideoTrack || isScreenSharing)) {
           if (node.srcObject !== mediaStream) {
             node.srcObject = mediaStream;
           }
-          node.play().catch(() => {});
+          node.play().catch(() => { });
         } else {
           node.srcObject = null;
         }
       }
     },
-    [mediaStream]
+    [mediaStream, hasVideoTrack, isScreenSharing]
   );
 
-  // Sync mediaStream dynamically whenever stream or track changes
-  React.useEffect(() => {
-    if (videoElementRef.current && mediaStream) {
-      if (videoElementRef.current.srcObject !== mediaStream) {
-        videoElementRef.current.srcObject = mediaStream;
+  // Callback ref for immediate audio attachment on mount
+  const setAudioRef = React.useCallback(
+    (node: HTMLAudioElement | null) => {
+      audioElementRef.current = node;
+      if (node) {
+        if (!isLocal && mediaStream) {
+          if (node.srcObject !== mediaStream) {
+            node.srcObject = mediaStream;
+          }
+          node.play().catch(() => { });
+        } else {
+          node.srcObject = null;
+        }
       }
-      videoElementRef.current.play().catch(() => {});
+    },
+    [isLocal, mediaStream]
+  );
+
+  // Sync video stream dynamically
+  React.useEffect(() => {
+    if (videoElementRef.current) {
+      if (mediaStream && (hasVideoTrack || isScreenSharing)) {
+        if (videoElementRef.current.srcObject !== mediaStream) {
+          videoElementRef.current.srcObject = mediaStream;
+        }
+        videoElementRef.current.play().catch((err) => {
+          console.warn("Video playback note:", err);
+        });
+      } else {
+        videoElementRef.current.srcObject = null;
+      }
     }
-  }, [mediaStream, isScreenSharing, participant.isVideoOff]);
+  }, [mediaStream, isScreenSharing, hasVideoTrack, participant.isVideoOff]);
+
+  // Sync audio stream for remote participants uninterruptedly
+  React.useEffect(() => {
+    if (!isLocal && audioElementRef.current && mediaStream) {
+      if (audioElementRef.current.srcObject !== mediaStream) {
+        audioElementRef.current.srcObject = mediaStream;
+      }
+      audioElementRef.current.play().catch((err) => {
+        console.warn("Remote audio play waiting for user gesture:", err);
+      });
+    }
+  }, [isLocal, mediaStream]);
 
   return (
     <div
@@ -63,59 +120,43 @@ export function VideoTile({
       )}
     >
       {/* Remote Audio Track Player - ALWAYS active and uninterrupted regardless of video toggles */}
-      {!isLocal && mediaStream && (
+      {!isLocal && (
         <audio
-          ref={(audioNode) => {
-            if (audioNode) {
-              if (audioNode.srcObject !== mediaStream) {
-                audioNode.srcObject = mediaStream;
-              }
-              audioNode.play().catch((err) => {
-                console.warn("Remote audio autoplay waiting for user gesture:", err);
-              });
-            }
-          }}
+          ref={setAudioRef}
           autoPlay
           playsInline
         />
       )}
 
-      {/* Participant Video / Screen Share / Avatar Display */}
-      {isScreenSharing && mediaStream ? (
-        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
-          <video
-            ref={setVideoRef}
-            autoPlay
-            playsInline
-            muted={isLocal}
-            className="w-full h-full object-contain bg-black"
-          />
-        </div>
-      ) : !participant.isVideoOff && (mediaStream || isLocal) ? (
-        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
-          <video
-            ref={setVideoRef}
-            autoPlay
-            playsInline
-            muted={isLocal}
-            className={cn(
-              "w-full h-full object-cover",
-              isLocal && "scale-x-[-1]"
-            )}
-          />
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center gap-3">
-          <Avatar
-            name={participant.name}
-            size="xl"
-            className="ring-2 ring-white/10"
-          />
-          <span className="text-xs text-slate-400 font-medium">
-            {participant.name}
-          </span>
-        </div>
-      )}
+      {/* Participant Video - ALWAYS mounted in DOM to prevent decoder teardown and race conditions */}
+      <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+        <video
+          ref={setVideoRef}
+          autoPlay
+          playsInline
+          muted={true}
+          className={cn(
+            "w-full h-full transition-opacity duration-200",
+            isScreenSharing ? "object-contain bg-black" : "object-cover",
+            isLocal && !isScreenSharing && "scale-x-[-1]",
+            (hasVideoTrack || isScreenSharing) ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
+          )}
+        />
+
+        {/* Avatar Overlay - Shown when video is off, muted, or loading */}
+        {!(hasVideoTrack || isScreenSharing) && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-dark-surface z-10">
+            <Avatar
+              name={participant.name}
+              size="xl"
+              className="ring-2 ring-white/10"
+            />
+            <span className="text-xs text-slate-400 font-medium">
+              {participant.name}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Active speaker prominent glowing border (visible on both video and avatar) */}
       {participant.isSpeaking && (
