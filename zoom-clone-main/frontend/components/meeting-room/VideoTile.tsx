@@ -24,16 +24,47 @@ export function VideoTile({
   const videoElementRef = React.useRef<HTMLVideoElement | null>(null);
   const audioElementRef = React.useRef<HTMLAudioElement | null>(null);
 
-  // Check if video tracks exist and are enabled
+  // Check if video tracks exist and participant has not disabled video
   const hasVideoTrack = Boolean(
-    isLocal
-      ? !participant.isVideoOff && Boolean(mediaStream)
-      : !participant.isVideoOff &&
-        Boolean(
-          mediaStream &&
-          mediaStream.getVideoTracks().length > 0 &&
-          mediaStream.getVideoTracks().some((t) => t.enabled)
-        )
+    !participant.isVideoOff &&
+    mediaStream &&
+    mediaStream.getVideoTracks().length > 0
+  );
+
+  // Callback ref for immediate video attachment on mount
+  const setVideoRef = React.useCallback(
+    (node: HTMLVideoElement | null) => {
+      videoElementRef.current = node;
+      if (node) {
+        if (mediaStream && (hasVideoTrack || isScreenSharing)) {
+          if (node.srcObject !== mediaStream) {
+            node.srcObject = mediaStream;
+          }
+          node.play().catch(() => { });
+        } else {
+          node.srcObject = null;
+        }
+      }
+    },
+    [mediaStream, hasVideoTrack, isScreenSharing]
+  );
+
+  // Callback ref for immediate audio attachment on mount
+  const setAudioRef = React.useCallback(
+    (node: HTMLAudioElement | null) => {
+      audioElementRef.current = node;
+      if (node) {
+        if (!isLocal && mediaStream) {
+          if (node.srcObject !== mediaStream) {
+            node.srcObject = mediaStream;
+          }
+          node.play().catch(() => { });
+        } else {
+          node.srcObject = null;
+        }
+      }
+    },
+    [isLocal, mediaStream]
   );
 
   // Sync video stream dynamically
@@ -78,48 +109,41 @@ export function VideoTile({
       {/* Remote Audio Track Player - ALWAYS active and uninterrupted regardless of video toggles */}
       {!isLocal && (
         <audio
-          ref={audioElementRef}
+          ref={setAudioRef}
           autoPlay
           playsInline
         />
       )}
 
-      {/* Participant Video / Screen Share / Avatar Display */}
-      {isScreenSharing && mediaStream ? (
-        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
-          <video
-            ref={videoElementRef}
-            autoPlay
-            playsInline
-            muted={true}
-            className="w-full h-full object-contain bg-black"
-          />
-        </div>
-      ) : hasVideoTrack ? (
-        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
-          <video
-            ref={videoElementRef}
-            autoPlay
-            playsInline
-            muted={true}
-            className={cn(
-              "w-full h-full object-cover",
-              isLocal && "scale-x-[-1]"
-            )}
-          />
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center gap-3">
-          <Avatar
-            name={participant.name}
-            size="xl"
-            className="ring-2 ring-white/10"
-          />
-          <span className="text-xs text-slate-400 font-medium">
-            {participant.name}
-          </span>
-        </div>
-      )}
+      {/* Participant Video - ALWAYS mounted in DOM to prevent decoder teardown and race conditions */}
+      <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
+        <video
+          ref={setVideoRef}
+          autoPlay
+          playsInline
+          muted={true}
+          className={cn(
+            "w-full h-full transition-opacity duration-200",
+            isScreenSharing ? "object-contain bg-black" : "object-cover",
+            isLocal && !isScreenSharing && "scale-x-[-1]",
+            (hasVideoTrack || isScreenSharing) ? "opacity-100 visible" : "opacity-0 invisible pointer-events-none"
+          )}
+        />
+
+        {/* Avatar Overlay - Shown when video is off, muted, or loading */}
+        {!(hasVideoTrack || isScreenSharing) && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-dark-surface z-10">
+            <Avatar
+              name={participant.name}
+              size="xl"
+              className="ring-2 ring-white/10"
+            />
+            <span className="text-xs text-slate-400 font-medium">
+              {participant.name}
+            </span>
+          </div>
+        )}
+      </div>
 
       {/* Active speaker prominent glowing border (visible on both video and avatar) */}
       {participant.isSpeaking && (

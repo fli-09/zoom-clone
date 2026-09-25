@@ -80,7 +80,7 @@ export function PreJoinLobby({
       videoRef.current = node;
       if (node && localStream) {
         node.srcObject = localStream;
-        node.play().catch(() => {});
+        node.play().catch(() => { });
       }
     },
     [localStream]
@@ -148,11 +148,10 @@ export function PreJoinLobby({
             <button
               type="button"
               onClick={() => setIsMuted(!isMuted)}
-              className={`p-2.5 rounded-full transition-colors ${
-                isMuted
+              className={`p-2.5 rounded-full transition-colors ${isMuted
                   ? "bg-rose-600 text-white hover:bg-rose-700"
                   : "bg-white/10 hover:bg-white/20 text-white"
-              }`}
+                }`}
               title={isMuted ? "Unmute Mic" : "Mute Mic"}
             >
               {isMuted ? <MicOff className="w-4 h-4" /> : <Mic className="w-4 h-4" />}
@@ -161,11 +160,10 @@ export function PreJoinLobby({
             <button
               type="button"
               onClick={() => setIsVideoOff(!isVideoOff)}
-              className={`p-2.5 rounded-full transition-colors ${
-                isVideoOff
+              className={`p-2.5 rounded-full transition-colors ${isVideoOff
                   ? "bg-rose-600 text-white hover:bg-rose-700"
                   : "bg-white/10 hover:bg-white/20 text-white"
-              }`}
+                }`}
               title={isVideoOff ? "Start Video" : "Stop Video"}
             >
               {isVideoOff ? <VideoOff className="w-4 h-4" /> : <Video className="w-4 h-4" />}

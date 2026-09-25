@@ -164,17 +164,25 @@ function MeetingRoomContent() {
       console.log(`[WebRTC] Received remote track: kind=${event.track.kind} id=${event.track.id} from ${targetId}`);
       setRemoteStreams((prev) => {
         const existingStream = prev[targetId];
-        let streamToUse: MediaStream;
+        const tracks: MediaStreamTrack[] = [];
 
         if (existingStream) {
-          const existingTracks = existingStream.getTracks().filter((t) => t.id !== event.track.id);
-          streamToUse = new MediaStream([...existingTracks, event.track]);
-        } else if (event.streams && event.streams[0]) {
-          streamToUse = new MediaStream(event.streams[0].getTracks());
-        } else {
-          streamToUse = new MediaStream([event.track]);
+          existingStream.getTracks().forEach((t) => {
+            if (t.id !== event.track.id) tracks.push(t);
+          });
+        }
+        if (event.streams && event.streams[0]) {
+          event.streams[0].getTracks().forEach((t) => {
+            if (!tracks.some((tr) => tr.id === t.id)) {
+              tracks.push(t);
+            }
+          });
+        }
+        if (!tracks.some((tr) => tr.id === event.track.id)) {
+          tracks.push(event.track);
         }
 
+        const streamToUse = new MediaStream(tracks);
         return {
           ...prev,
           [targetId]: streamToUse,
