@@ -1,0 +1,36 @@
+import type { Metadata } from "next";
+import localFont from "next/font/local";
+import "./globals.css";
+
+const geistSans = localFont({
+  src: "./fonts/GeistVF.woff",
+  variable: "--font-geist-sans",
+  weight: "100 900",
+});
+const geistMono = localFont({
+  src: "./fonts/GeistMonoVF.woff",
+  variable: "--font-geist-mono",
+  weight: "100 900",
+});
+
+export const metadata: Metadata = {
+  title: "Zoom - Video Conferencing, Cloud Meetings & Group Chat",
+  description:
+    "Modern, high-performance video conferencing and online meetings application built with Next.js and FastAPI.",
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en" className="dark">
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-dark-bg text-slate-100 min-h-screen`}
+      >
+        {children}
+      </body>
+    </html>
+  );
+}
