@@ -10,10 +10,11 @@ import { AppShell } from "@/components/layout/AppShell";
 import { NextMeeting } from "@/components/dashboard/NextMeeting";
 import { QuickActions } from "@/components/dashboard/QuickActions";
 import { RecentMeetings } from "@/components/dashboard/RecentMeetings";
-import { UpcomingMeetings } from "@/components/dashboard/UpcomingMeetings";
 import { NewMeetingModal } from "@/components/dashboard/NewMeetingModal";
 import { JoinMeetingModal } from "@/components/dashboard/JoinMeetingModal";
 import { ScheduleMeetingModal } from "@/components/dashboard/ScheduleMeetingModal";
+import { MeetingCard } from "@/components/MeetingCard";
+import { EmptyState } from "@/components/EmptyState";
 import { Skeleton } from "@/components/ui/Skeleton";
 import { Button } from "@/components/ui/Button";
 import { Calendar, Clock, RefreshCw, AlertCircle } from "lucide-react";
@@ -158,11 +159,38 @@ export default function DashboardPage() {
             </Button>
           </div>
 
-          <UpcomingMeetings
-            meetings={filteredUpcoming}
-            isLoading={loading}
-            onScheduleClick={() => setIsScheduleModalOpen(true)}
-          />
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {[1, 2, 3].map((i) => (
+                <Skeleton key={i} className="h-48 rounded-2xl" />
+              ))}
+            </div>
+          ) : filteredUpcoming.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredUpcoming.map((meeting) => (
+                <MeetingCard
+                  key={meeting.id}
+                  meeting={meeting}
+                  variant="upcoming"
+                />
+              ))}
+            </div>
+          ) : (
+            <EmptyState
+              title={
+                searchQuery
+                  ? "No matching upcoming meetings"
+                  : "No upcoming meetings scheduled"
+              }
+              description={
+                searchQuery
+                  ? `No upcoming meetings found matching "${searchQuery}".`
+                  : "Schedule a meeting in advance or create an instant meeting to get started."
+              }
+              actionLabel="Schedule Meeting"
+              onAction={() => setIsScheduleModalOpen(true)}
+            />
+          )}
         </section>
 
         {/* Recent Meetings Section */}
