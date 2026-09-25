@@ -141,7 +141,7 @@ function MeetingRoomContent() {
       ? screenStreamRef.current || localStreamRef.current
       : localStreamRef.current;
 
-    if (currentStream) {
+    if (currentStream && currentStream.getTracks().length > 0) {
       currentStream.getTracks().forEach((track) => {
         try {
           pc.addTrack(track, currentStream);
@@ -149,6 +149,14 @@ function MeetingRoomContent() {
           console.warn("Track addition error:", e);
         }
       });
+    } else {
+      // Ensure transceivers exist to receive remote audio and video if local stream is pending
+      try {
+        pc.addTransceiver("audio", { direction: "recvonly" });
+        pc.addTransceiver("video", { direction: "recvonly" });
+      } catch (e) {
+        console.warn("addTransceiver note:", e);
+      }
     }
 
     // When remote track is received from this peer
@@ -158,13 +166,11 @@ function MeetingRoomContent() {
         const existingStream = prev[targetId];
         let streamToUse: MediaStream;
 
-        if (event.streams && event.streams[0]) {
-          streamToUse = event.streams[0];
-        } else if (existingStream) {
-          streamToUse = existingStream;
-          if (!streamToUse.getTracks().some((t) => t.id === event.track.id)) {
-            streamToUse.addTrack(event.track);
-          }
+        if (existingStream) {
+          const existingTracks = existingStream.getTracks().filter((t) => t.id !== event.track.id);
+          streamToUse = new MediaStream([...existingTracks, event.track]);
+        } else if (event.streams && event.streams[0]) {
+          streamToUse = new MediaStream(event.streams[0].getTracks());
         } else {
           streamToUse = new MediaStream([event.track]);
         }
@@ -394,6 +400,12 @@ function MeetingRoomContent() {
 
     socket.onopen = () => {
       console.log(`Connected to room ${roomId} as ${displayName}`);
+      socket.send(
+        JSON.stringify({
+          type: "status_update",
+          updates: { isMuted, isVideoOff },
+        })
+      );
     };
 
     socket.onmessage = async (event) => {
@@ -975,10 +987,10 @@ function MeetingRoomContent() {
         <main className="flex-1 p-3 sm:p-5 flex items-center justify-center overflow-hidden">
           <div
             className={`w-full h-full max-w-6xl grid gap-3 sm:gap-4 items-center justify-center ${participants.length <= 1
-                ? "grid-cols-1 max-w-4xl max-h-[80vh]"
-                : participants.length === 2
-                  ? "grid-cols-1 sm:grid-cols-2 max-h-[80vh]"
-                  : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-h-[85vh]"
+              ? "grid-cols-1 max-w-4xl max-h-[80vh]"
+              : participants.length === 2
+                ? "grid-cols-1 sm:grid-cols-2 max-h-[80vh]"
+                : "grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 max-h-[85vh]"
               }`}
           >
             {participants.map((p) => {

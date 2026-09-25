@@ -86,14 +86,25 @@ export function PreJoinLobby({
     [localStream]
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
     if (!trimmed) {
       setErrorMsg("Please enter your name before joining");
       return;
     }
-    onJoin(trimmed, isMuted, isVideoOff, localStream || streamRef.current);
+    let streamToPass = localStream || streamRef.current;
+    if (!streamToPass && !isVideoOff && typeof navigator !== "undefined" && navigator.mediaDevices?.getUserMedia) {
+      try {
+        streamToPass = await navigator.mediaDevices.getUserMedia({
+          video: true,
+          audio: true,
+        });
+      } catch (err) {
+        console.warn("Could not capture media on join:", err);
+      }
+    }
+    onJoin(trimmed, isMuted, isVideoOff, streamToPass);
   };
 
   return (

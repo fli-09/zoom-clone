@@ -24,19 +24,33 @@ export function VideoTile({
   const videoElementRef = React.useRef<HTMLVideoElement | null>(null);
   const audioElementRef = React.useRef<HTMLAudioElement | null>(null);
 
+  // Check if video tracks exist and are enabled
+  const hasVideoTrack = Boolean(
+    isLocal
+      ? !participant.isVideoOff && Boolean(mediaStream)
+      : !participant.isVideoOff &&
+        Boolean(
+          mediaStream &&
+          mediaStream.getVideoTracks().length > 0 &&
+          mediaStream.getVideoTracks().some((t) => t.enabled)
+        )
+  );
+
   // Sync video stream dynamically
   React.useEffect(() => {
     if (videoElementRef.current) {
-      if (mediaStream && (!participant.isVideoOff || isScreenSharing)) {
+      if (mediaStream && (hasVideoTrack || isScreenSharing)) {
         if (videoElementRef.current.srcObject !== mediaStream) {
           videoElementRef.current.srcObject = mediaStream;
         }
-        videoElementRef.current.play().catch(() => { });
+        videoElementRef.current.play().catch((err) => {
+          console.warn("Video playback note:", err);
+        });
       } else {
         videoElementRef.current.srcObject = null;
       }
     }
-  }, [mediaStream, isScreenSharing, participant.isVideoOff]);
+  }, [mediaStream, isScreenSharing, hasVideoTrack, participant.isVideoOff]);
 
   // Sync audio stream for remote participants uninterruptedly
   React.useEffect(() => {
@@ -77,17 +91,17 @@ export function VideoTile({
             ref={videoElementRef}
             autoPlay
             playsInline
-            muted={isLocal}
+            muted={true}
             className="w-full h-full object-contain bg-black"
           />
         </div>
-      ) : !participant.isVideoOff && (mediaStream || isLocal) ? (
+      ) : hasVideoTrack ? (
         <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
           <video
             ref={videoElementRef}
             autoPlay
             playsInline
-            muted={isLocal}
+            muted={true}
             className={cn(
               "w-full h-full object-cover",
               isLocal && "scale-x-[-1]"
