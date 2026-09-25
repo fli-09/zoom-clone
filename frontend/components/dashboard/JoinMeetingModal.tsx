@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Modal } from "@/components/ui/Modal";
 import { Button } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
-import { getMeetingByRoomId } from "@/lib/api";
 
 export interface JoinMeetingModalProps {
   isOpen: boolean;
@@ -20,8 +19,6 @@ export function JoinMeetingModal({ isOpen, onClose }: JoinMeetingModalProps) {
   const [userName, setUserName] = useState("Guest User");
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
-  const [isChecking, setIsChecking] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const cleanRoomId = (raw: string): string => {
     let cleaned = raw.trim();
@@ -31,35 +28,17 @@ export function JoinMeetingModal({ isOpen, onClose }: JoinMeetingModalProps) {
     return cleaned.replace(/[^a-zA-Z0-9_-]/g, "");
   };
 
-  const handleJoin = async (e: React.FormEvent) => {
+  const handleJoin = (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMessage(null);
     const roomId = cleanRoomId(inputVal);
 
     if (!roomId) {
-      setErrorMessage("Please enter a valid Meeting ID or URL");
       error("Please enter a valid Meeting ID or URL");
       return;
     }
 
-    setIsChecking(true);
-    try {
-      // Validate that meeting exists in backend database
-      await getMeetingByRoomId(roomId);
-      onClose();
-      const params = new URLSearchParams();
-      if (userName.trim()) params.set("name", userName.trim());
-      if (isMuted) params.set("muted", "1");
-      if (isVideoOff) params.set("videoOff", "1");
-      const qs = params.toString() ? `?${params.toString()}` : "";
-      router.push(`/meeting/${roomId}${qs}`);
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : `Meeting '${roomId}' not found`;
-      setErrorMessage(msg);
-      error(msg);
-    } finally {
-      setIsChecking(false);
-    }
+    onClose();
+    router.push(`/meeting/${roomId}`);
   };
 
   return (
@@ -121,25 +100,12 @@ export function JoinMeetingModal({ isOpen, onClose }: JoinMeetingModalProps) {
           </label>
         </div>
 
-        {errorMessage && (
-          <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-xs text-rose-400">
-            {errorMessage}
-          </div>
-        )}
-
         <div className="flex items-center justify-end gap-3 pt-3">
-          <Button type="button" variant="ghost" size="md" onClick={onClose} disabled={isChecking}>
+          <Button type="button" variant="ghost" size="md" onClick={onClose}>
             Cancel
           </Button>
-          <Button
-            type="submit"
-            variant="primary"
-            size="md"
-            className="px-6"
-            isLoading={isChecking}
-            disabled={isChecking}
-          >
-            {isChecking ? "Validating..." : "Join"}
+          <Button type="submit" variant="primary" size="md" className="px-6">
+            Join
           </Button>
         </div>
       </form>

@@ -122,28 +122,3 @@ export async function createScheduledMeeting(
   return response.json();
 }
 
-/**
- * Fetch and validate a meeting room by room_id.
- *
- * Endpoint: GET /api/meetings/{room_id}
- * Return Shape: Promise<MeetingResponse>
- */
-export async function getMeetingByRoomId(roomId: string): Promise<MeetingResponse> {
-  const response = await fetch(`${API_URL}/api/meetings/${encodeURIComponent(roomId)}`, {
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  });
-  if (!response.ok) {
-    if (response.status === 404) {
-      throw new Error(`Meeting room '${roomId}' does not exist.`);
-    }
-    const errorText = await response.text().catch(() => "");
-    throw new Error(
-      `Failed to validate meeting (${response.status}): ${errorText || response.statusText}`
-    );
-  }
-  return response.json();
-}
-

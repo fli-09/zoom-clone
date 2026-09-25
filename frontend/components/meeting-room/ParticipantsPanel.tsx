@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Mic, MicOff, Video, VideoOff, Hand, Search, Check, Copy, UserX } from "lucide-react";
+import { Mic, MicOff, Video, VideoOff, Hand, Search, Check, Copy } from "lucide-react";
 import { MeetingParticipant } from "@/lib/types";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
@@ -13,8 +13,6 @@ export interface ParticipantsPanelProps {
   onClose: () => void;
   participants: MeetingParticipant[];
   roomId: string;
-  onMuteAll?: () => void;
-  onRemoveParticipant?: (id: string | number) => void;
 }
 
 export function ParticipantsPanel({
@@ -22,8 +20,6 @@ export function ParticipantsPanel({
   onClose,
   participants,
   roomId,
-  onMuteAll,
-  onRemoveParticipant,
 }: ParticipantsPanelProps) {
   const { success } = useToast();
   const [search, setSearch] = useState("");
@@ -114,16 +110,6 @@ export function ParticipantsPanel({
               ) : (
                 <Video className="w-3.5 h-3.5 text-slate-400" />
               )}
-              {onRemoveParticipant && p.role !== "host" && p.id !== "local-user" && (
-                <button
-                  type="button"
-                  onClick={() => onRemoveParticipant(p.id)}
-                  className="p-1 ml-1 rounded text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
-                  title={`Remove ${p.name}`}
-                >
-                  <UserX className="w-3.5 h-3.5" />
-                </button>
-              )}
             </div>
           </div>
         ))}
@@ -131,18 +117,6 @@ export function ParticipantsPanel({
 
       {/* Footer Actions */}
       <div className="p-3 border-t border-dark-border bg-dark-bg/60 flex items-center gap-2">
-        {onMuteAll && (
-          <Button
-            variant="destructive"
-            size="sm"
-            onClick={onMuteAll}
-            className="text-xs px-2.5"
-            title="Mute all participants"
-          >
-            <MicOff className="w-3.5 h-3.5 mr-1" />
-            <span>Mute All</span>
-          </Button>
-        )}
         <Button
           variant="secondary"
           size="sm"

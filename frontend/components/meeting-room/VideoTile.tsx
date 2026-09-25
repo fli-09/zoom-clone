@@ -10,7 +10,6 @@ export interface VideoTileProps {
   participant: MeetingParticipant;
   isLocal?: boolean;
   isScreenSharing?: boolean;
-  mediaStream?: MediaStream | null;
   className?: string;
 }
 
@@ -18,21 +17,8 @@ export function VideoTile({
   participant,
   isLocal = false,
   isScreenSharing = false,
-  mediaStream = null,
   className,
 }: VideoTileProps) {
-  const videoRef = React.useRef<HTMLVideoElement>(null);
-
-  React.useEffect(() => {
-    if (videoRef.current) {
-      if (mediaStream) {
-        videoRef.current.srcObject = mediaStream;
-      } else {
-        videoRef.current.srcObject = null;
-      }
-    }
-  }, [mediaStream]);
-
   return (
     <div
       className={cn(
@@ -45,7 +31,7 @@ export function VideoTile({
       )}
     >
       {/* Participant Video / Avatar Display */}
-      {participant.isVideoOff || !mediaStream ? (
+      {participant.isVideoOff ? (
         <div className="flex flex-col items-center justify-center gap-3">
           <Avatar
             name={participant.name}
@@ -57,18 +43,15 @@ export function VideoTile({
           </span>
         </div>
       ) : (
-        <div className="relative w-full h-full bg-black flex items-center justify-center overflow-hidden">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted={isLocal}
-            className={cn(
-              "w-full h-full object-cover",
-              isLocal && !isScreenSharing && "scale-x-[-1]"
-            )}
+        <div className="relative w-full h-full bg-slate-900/90 flex items-center justify-center">
+          {/* Simulated webcam stream / avatar */}
+          <Avatar
+            name={participant.name}
+            size="xl"
+            className="ring-4 ring-brand/20 shadow-2xl"
           />
 
+          {/* Subtly animated simulated audio wave when speaking */}
           {participant.isSpeaking && (
             <div className="absolute inset-0 border-2 border-emerald-500/80 rounded-2xl pointer-events-none animate-pulse-subtle" />
           )}
